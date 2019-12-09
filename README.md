@@ -1,5 +1,5 @@
 # ![muoxi_logo][logo] 
-# MuOxi MUD/MU* Rustic Game Engine 
+# MuOxi MUD/MU* Rustic Game Engine v0.1.0
 [![Build Status][travisimg]][travislink] 
 
 *MuOxi* is a modern library for creating [online multiplayer text
