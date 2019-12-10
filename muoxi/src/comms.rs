@@ -4,9 +4,8 @@
 //!
 
 // #[deny(missing_docs)]
-#![allow(dead_code)]
 
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::pin::Pin;
