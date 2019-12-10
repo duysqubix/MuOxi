@@ -9,8 +9,8 @@
 pub struct SharedData;
 
 enum PlayerType {
-    NewPlayer(&str),
-    ExistingPlayer(&str),
+    NewPlayer(String),
+    ExistingPlayer(String),
 }
 ///
 /// A structure to hold commands available to player depending on the ConnState
@@ -175,8 +175,8 @@ impl ConnStateDriver {
     fn step(mut self) -> Self {
         self = match self {
             ConnStateDriver::AwaitingName(val) => match val.state.ptype {
-                PlayerType::NewPlayer(s) => ConnStateDriver::AwaitingNewName(val.into()),
-                PlayerType::ExistingPlayer(s) => ConnStateDriver::AwaitingPassword(val.into()),
+                PlayerType::NewPlayer(_) => ConnStateDriver::AwaitingNewName(val.into()),
+                PlayerType::ExistingPlayer(_) => ConnStateDriver::AwaitingPassword(val.into()),
             },
             ConnStateDriver::AwaitingNewName(val) => {
                 ConnStateDriver::AwaitingNewPassword(val.into())
