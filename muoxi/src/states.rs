@@ -196,9 +196,4 @@ impl ConnStateDriver {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn name() {
-        unimplemented!();
-    }
 }
