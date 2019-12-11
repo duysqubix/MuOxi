@@ -5,7 +5,7 @@
 *MuOxi* is a modern library for creating [online multiplayer text
 games][wikimudpage] (MU* family) in Rust using an asynchronous programming paradigm, powered by [tokio][tokio],. 
 It allows developers and coders to design and flesh out their worlds in a
-fast, safe, and reliable language. MuOxi engine is made available under *GPL3*.
+fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. Join us on [discord][discord].
 
 
 ## Current Status
@@ -71,3 +71,4 @@ that I think will make this an outstanding project.
 [travislink]: https://travis-ci.org/duysqubix/MuOxi
 [wikimudpage]: http://en.wikipedia.org/wiki/MUD
 [tokio]: https://docs.rs/tokio/0.2.0-alpha.6/tokio/
+[discord]: https://discord.gg/pMnBmGv
