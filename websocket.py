@@ -1,3 +1,7 @@
+#
+# Simple Python Client that sends data to websocket and prints return data
+#
+
 import asyncio
 import websockets
 
