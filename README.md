@@ -16,6 +16,26 @@ The codebase is currently in **Pre-Alpha**. While development continues,
 the master branch is essentially a working and very minimilistic chat server 
 operating over TCP. 
 
+## Core Design Architecture
+
+The prototype idea of how the core design is laid out into three seperate objects consisting three components
+1. Staging/Proxy Server (Clients will connect to this and essentiall communicate with the engine in this stage)
+2. Game Engine (all the game logic lies here and reacts to input from connected clients)
+3. Database (stores information about entities, objects, and game data)
+
+The general idea is that players will connect via Websocket to the *staging area*. In this server, clients 
+are actually not connected yet to the game, unless they explicity enter. The *staging area* acts as a proxy that relays
+information from players to the game itself, where then the game will react to the players input. The engine and staging area will
+be seperated and communicate via a standard TCP server. The reason for this seperation, is to protect players from completely
+disconnecting from the game if changes to the game engine is made.
+
+The general layout looks like the following:
+
+```
+---------      -------------      ---------------------      -------      ---------------
+| Client| <--> | Websocket | <--> |Proxy/Staging Area | <--> | TCP | <--> | Game Engine |
+---------      -------------      ---------------------      -------      ---------------
+```
 
 ## Features and Philosophy
 
@@ -48,6 +68,9 @@ The bare minimum TODO features that must be implemented before I would consider 
 * Implements a periodic message every *n* seconds
 * Implements some rudimentary admin control (eg. muting another player)
 * Basic cardinal movement
+
+
+
 
 ## Future/Vision
 
