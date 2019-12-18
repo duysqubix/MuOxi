@@ -37,6 +37,8 @@ The general layout looks like the following:
 ---------      -------------      ---------------------      -------      ---------------
 ```
 
+This design is still in prototype phase.
+
 ## Features and Philosophy
 
 The MuOxi library is aimed at creating a very bare-bone library for developers
