@@ -2,13 +2,19 @@
 //! File: states.rs
 //! Usage: defines all the states a player can be in, and ensures seemless transition between states
 //!
+use futures::{SinkExt, StreamExt};
+use tokio::net::TcpStream;
+use tokio_util::codec::{Framed, LinesCodec};
 
 ///
-/// A struct that will allow for sharing between all the states;
+/// Universal initialization trait that each State will *inherit*
+/// This will run once upon entering a new state
 ///
-pub struct SharedData;
+trait Process {
+    fn process(&mut self) -> Result<(), String>;
+}
 
-enum PlayerType {
+pub enum PlayerType {
     NewPlayer(String),
     ExistingPlayer(String),
 }
@@ -26,38 +32,85 @@ impl CmdSet {
 /// The state machine that will handle a players progression between the different
 /// connectivity states.
 ///
-struct ConnState<T> {
-    shared: SharedData,
+pub struct ConnState<T> {
+    client: Framed<TcpStream, LinesCodec>,
     cmdset: CmdSet,
     state: T,
 }
 
-impl ConnState<AwaitingName> {
-    fn new(shared: SharedData, ptype: PlayerType) -> Self {
+impl<T: Process> Process for ConnState<T> {
+    fn process(&mut self) -> Result<(), String> {
+        self.client
+            .send("Enter player name, or create `new`".to_string())
+            .await;
+        self.state.process().unwrap();
+        Ok(())
+    }
+}
+
+impl ConnState<EnterGame> {
+    pub fn new(stream: Framed<TcpStream, LinesCodec>) -> Self {
+        println!("entered game");
         ConnState {
-            shared: shared,
+            client: stream,
             cmdset: CmdSet::new(),
-            state: AwaitingName { ptype: ptype },
+            state: EnterGame {},
         }
     }
 }
 
 ///
-/// Initial State when entering the game
+/// Upon successful connection to game server
+/// connected client will enter `EnterGame` state
+/// as initial ConnState
 ///
-struct AwaitingName {
+pub struct EnterGame {}
+
+impl Process for EnterGame {
+    fn process(&mut self) -> Result<(), String> {
+        println!("Doing the actual process logic for this connection type!");
+        Ok(())
+    }
+}
+
+///
+/// Initial state when entering the game
+/// It will send player default entry message
+/// and process player input
+///
+pub struct AwaitingName {
     ptype: PlayerType,
+}
+
+impl Process for AwaitingName {
+    fn process(&mut self) -> Result<(), String> {
+        //
+        Ok(())
+    }
+}
+
+impl From<ConnState<EnterGame>> for ConnState<AwaitingName> {
+    fn from(val: ConnState<EnterGame>) -> ConnState<AwaitingName> {
+        ConnState {
+            client: val.client,
+            cmdset: CmdSet::new(),
+            state: AwaitingName {
+                ptype: PlayerType::NewPlayer("New Player".to_string()),
+            },
+        }
+    }
 }
 
 ///
 /// Asking for password; player exists
+/// handle multiple attempts at password.
 ///
-struct AwaitingPassword {}
+pub struct AwaitingPassword {}
 
 impl From<ConnState<AwaitingName>> for ConnState<AwaitingPassword> {
     fn from(val: ConnState<AwaitingName>) -> ConnState<AwaitingPassword> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: AwaitingPassword {
                 //add fields
@@ -69,12 +122,12 @@ impl From<ConnState<AwaitingName>> for ConnState<AwaitingPassword> {
 ///
 /// New player found, asking for name
 ///
-struct AwaitingNewName {}
+pub struct AwaitingNewName {}
 
 impl From<ConnState<AwaitingName>> for ConnState<AwaitingNewName> {
     fn from(val: ConnState<AwaitingName>) -> ConnState<AwaitingNewName> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: AwaitingNewName {
                 // add fields
@@ -84,14 +137,14 @@ impl From<ConnState<AwaitingName>> for ConnState<AwaitingNewName> {
 }
 
 ///
-/// New password
+/// New passwor
 ///
-struct AwaitingNewPassword {}
+pub struct AwaitingNewPassword {}
 
 impl From<ConnState<AwaitingNewName>> for ConnState<AwaitingNewPassword> {
     fn from(val: ConnState<AwaitingNewName>) -> ConnState<AwaitingNewPassword> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: AwaitingNewPassword {
                 // add fields
@@ -103,12 +156,12 @@ impl From<ConnState<AwaitingNewName>> for ConnState<AwaitingNewPassword> {
 ///
 /// Confirming new password
 ///
-struct ConfirmPassword {}
+pub struct ConfirmPassword {}
 
 impl From<ConnState<AwaitingNewPassword>> for ConnState<ConfirmPassword> {
     fn from(val: ConnState<AwaitingNewPassword>) -> ConnState<ConfirmPassword> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: ConfirmPassword {
                 // add fields
@@ -120,11 +173,11 @@ impl From<ConnState<AwaitingNewPassword>> for ConnState<ConfirmPassword> {
 ///
 /// Main state, player connected to game, available commands.
 ///
-struct Playing {}
+pub struct Playing {}
 impl From<ConnState<ConfirmPassword>> for ConnState<Playing> {
     fn from(val: ConnState<ConfirmPassword>) -> ConnState<Playing> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: Playing {
                 // add fields
@@ -136,7 +189,7 @@ impl From<ConnState<ConfirmPassword>> for ConnState<Playing> {
 impl From<ConnState<AwaitingPassword>> for ConnState<Playing> {
     fn from(val: ConnState<AwaitingPassword>) -> ConnState<Playing> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: Playing {
                 // add fields
@@ -148,11 +201,11 @@ impl From<ConnState<AwaitingPassword>> for ConnState<Playing> {
 ///
 /// The state right before disconnect
 ///
-struct Quiting {}
+pub struct Quiting {}
 impl From<ConnState<Playing>> for ConnState<Quiting> {
     fn from(val: ConnState<Playing>) -> ConnState<Quiting> {
         ConnState {
-            shared: val.shared,
+            client: val.client,
             cmdset: CmdSet::new(),
             state: Quiting {
                 // add fields
@@ -161,7 +214,8 @@ impl From<ConnState<Playing>> for ConnState<Quiting> {
     }
 }
 
-enum ConnStateDriver {
+pub enum ConnStateDriver {
+    EnterGame(ConnState<EnterGame>),
     AwaitingName(ConnState<AwaitingName>),
     AwaitingPassword(ConnState<AwaitingPassword>),
     AwaitingNewName(ConnState<AwaitingNewName>),
@@ -172,8 +226,9 @@ enum ConnStateDriver {
 }
 
 impl ConnStateDriver {
-    fn step(mut self) -> Self {
+    pub fn step(mut self) -> Self {
         self = match self {
+            ConnStateDriver::EnterGame(val) => ConnStateDriver::AwaitingName(val.into()),
             ConnStateDriver::AwaitingName(val) => match val.state.ptype {
                 PlayerType::NewPlayer(_) => ConnStateDriver::AwaitingNewName(val.into()),
                 PlayerType::ExistingPlayer(_) => ConnStateDriver::AwaitingPassword(val.into()),
@@ -190,6 +245,18 @@ impl ConnStateDriver {
             _ => self,
         };
         self
+    }
+
+    ///
+    /// Execute main logic for each connstate
+    ///
+    ///
+    pub fn execute(&mut self) {
+        println! {"HELLO THERE"}
+
+        if let ConnStateDriver::EnterGame(s) = self {
+            s.process().unwrap();
+        }
     }
 }
 

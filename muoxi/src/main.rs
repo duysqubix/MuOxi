@@ -1,107 +1,64 @@
-mod comms;
-mod states;
+/// An example of a chat web application server
+extern crate ws;
+use mio::Token as Id;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use ws::{listen, Handler, Message, Result, Sender};
 
-use crate::comms::*;
-use crate::states::*;
-use futures::{SinkExt, StreamExt};
-use std::error::Error;
-use std::net::SocketAddr;
-use std::sync::Arc;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
-use tokio_util::codec::{Framed, LinesCodec};
+type IpAddr = String;
 
-///
-/// Main Event Loop of MuOxi. Server listens and accepts new connections
-/// and spawns a tokio task that will run concurrently and handle all i/o
-/// operations in a thread safe manner.. yay!
-///
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let state = Arc::new(Mutex::new(ClientShared::new()));
+#[derive(Debug)]
+struct Clients {
+    clients: HashMap<Id, Sender>,
+}
 
-    let addr = "127.0.0.1:8000".to_string();
+impl Clients {
+    fn new() -> Self {
+        Self {
+            clients: HashMap::new(),
+        }
+    }
+}
+// Server web application handler
+struct Server {
+    out: Sender,
+    clients: Rc<RefCell<Clients>>,
+}
 
-    let mut muoxi = TcpListener::bind(&addr).await?;
-
-    println!("MuOxi Server running on: {:?}", muoxi);
-
-    loop {
-        let (stream, addr) = muoxi.accept().await?;
-
-        let state = Arc::clone(&state);
-
-        tokio::spawn(async move {
-            if let Err(e) = process(state, stream, addr).await {
-                println!("An error occured; error={:?}", e);
-            }
-        });
+impl Server {
+    fn new(sender: Sender, clients: Rc<RefCell<Clients>>) -> Self {
+        Self {
+            out: sender,
+            clients: clients,
+        }
     }
 }
 
-///
-/// Wrapper for processing individual client input
-///
-async fn process(
-    state: Arc<Mutex<ClientShared>>,
-    stream: TcpStream,
-    addr: SocketAddr,
-) -> Result<(), Box<dyn Error>> {
-    let mut lines = Framed::new(stream, LinesCodec::new());
-    lines.send("Please enter username".to_string()).await?;
+impl Handler for Server {
+    // Handle messages recieved in the websocket (in this case, only on /ws)
+    fn on_message(&mut self, msg: Message) -> Result<()> {
+        // Broadcast to all connections
+        println!("{:?}", self.clients.borrow());
+        self.out.broadcast(msg)
+    }
 
-    let username = match lines.next().await {
-        Some(Ok(line)) => line,
-        _ => {
-            println!("Failed to get username from {}", addr);
-            return Ok(());
+    fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
+        if let Some(ip_addr) = shake.remote_addr()? {
+            println!("Connection opened from {}.", ip_addr);
+            self.clients
+                .borrow_mut()
+                .clients
+                .insert(self.out.token(), self.out.clone());
+        } else {
+            println!("Unable to obtain client's IP address.");
         }
-    };
-
-    let mut client = Client::new(state.clone(), lines).await?;
-
-    {
-        let mut state = state.lock().await;
-        let msg = format!("{} has joined", username);
-        println!("{}", msg);
-        state.broadcast(addr, &msg).await;
+        Ok(())
     }
+}
 
-    // process incoming message until our stream is exhausted by a disconnect
-
-    while let Some(result) = client.next().await {
-        match result {
-            // A message was recieved from the current user, we should
-            // do something with this....
-            Ok(Message::Broadcast(msg)) => {
-                let mut state = state.lock().await;
-                let msg = format!("{} say, {}", username, msg);
-                state.broadcast(addr, &msg).await;
-            }
-
-            // A message was recieved on the RX channel, send it
-            // via socket to client
-            Ok(Message::Recieved(msg)) => {
-                client.lines.send(msg).await?;
-            }
-
-            Err(e) => {
-                println!(
-                    "an error as occured while processing messages for {}; error={:?}",
-                    username, e
-                );
-            }
-        }
-    }
-
-    {
-        let mut state = state.lock().await;
-        state.clients.remove(&addr);
-
-        let msg = format!("{} has left the game", username);
-        println!("{}", msg);
-        state.broadcast(addr, &msg).await;
-    }
-
-    Ok(())
+fn main() {
+    //Listen on an address and call the closure for each connection
+    let clients = Rc::new(RefCell::new(Clients::new()));
+    listen("127.0.0.1:8080", |out| Server::new(out, clients.clone())).unwrap()
 }
