@@ -19,7 +19,7 @@ operating over TCP.
 ## Core Design Architecture
 
 The prototype idea of how the core design is laid out into three seperate objects consisting three components
-1. Staging/Proxy Server (Clients will connect to this and essentiall communicate with the engine in this stage)
+1. Staging/Proxy Server (Clients will connect to this and essentially communicate with the engine in this stage)
 2. Game Engine (all the game logic lies here and reacts to input from connected clients)
 3. Database (stores information about entities, objects, and game data)
 
@@ -32,9 +32,9 @@ disconnecting from the game if changes to the game engine is made.
 The general layout looks like the following:
 
 ```
----------      -------------      ---------------------      -------      ---------------
-| Client| <--> | Websocket | <--> |Proxy/Staging Area | <--> | TCP | <--> | Game Engine |
----------      -------------      ---------------------      -------      ---------------
+---------                 ---------------------             ---------------
+| Client| <--Websocket--> |Proxy/Staging Area | <-- TCP --> | Game Engine |
+---------                 ---------------------             ---------------
 ```
 
 This design is still in prototype phase.
