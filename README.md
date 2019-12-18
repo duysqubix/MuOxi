@@ -3,28 +3,28 @@
 [![Build Status][travisimg]][travislink] 
 
 *MuOxi* is a modern library for creating [online multiplayer text
-games][wikimudpage] (MU* family) in Rust using an asynchronous programming paradigm, powered by [tokio][tokio],. 
+games][wikimudpage] (MU* family) in Rust using the powerful and flexable [Amethyst][amethyst] game engine,. 
 It allows developers and coders to design and flesh out their worlds in a
 fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. Join us on [discord][discord].
 
 
 ## Current Status
 
-*Rustc 1.39>*
+*Rustc 1.39> [Stable/Nightly]*
 
-The codebase is currently in **Pre-Alpha**. While development continues,
-the master branch is essentially a working and very minimilistic chat server 
+The codebase is currently in *alpha* stage . While development continues,
+the master branch is essentially a working and very minimilistic weboscket server 
 operating over TCP. 
 
 ## Core Design Architecture
 
-The prototype idea of how the core design is laid out into three seperate objects consisting three components
-1. Staging/Proxy Server (Clients will connect to this and essentially communicate with the engine in this stage)
-2. Game Engine (all the game logic lies here and reacts to input from connected clients)
-3. Database (stores information about entities, objects, and game data)
+The prototype idea of how the core design is laid out into three seperate objects.
+1. Staging/Proxy Server *(Clients will connect to this server and essentially communicate with the engine via here stage)*
+2. Game Engine *(all the game logic lies here and reacts to input from connected clients)*
+3. Database *(stores information about entities, objects, and game data)* 
 
-The general idea is that players will connect via Websocket to the *staging area*. In this server, clients 
-are actually not connected yet to the game, unless they explicity enter. The *staging area* acts as a proxy that relays
+The idea is that players will connect via Websocket to the *proxy server*. In this server, clients 
+are not actually connected to the game, unless they explicity enter. The *staging area* acts as a proxy that relays
 information from players to the game itself, where then the game will react to the players input. The engine and staging area will
 be seperated and communicate via a standard TCP server. The reason for this seperation, is to protect players from completely
 disconnecting from the game if changes to the game engine is made.
@@ -32,16 +32,16 @@ disconnecting from the game if changes to the game engine is made.
 The general layout looks like the following:
 
 ```
----------                 ---------------------             ---------------
-| Client| <--Websocket--> |Proxy/Staging Area | <-- TCP --> | Game Engine |
----------                 ---------------------             ---------------
+------------------                ---------------------             ---------------
+| Client Frontend| <--Websocket--> |Proxy/Staging Area | <-- TCP --> | Game Engine |
+------------------                 ---------------------             ---------------
 ```
 
 This design is still in prototype phase.
 
 ## Features and Philosophy
 
-The MuOxi library is aimed at creating a very bare-bone library for developers
+The MuOxi library is aimed at creating a very simplistic and robust library for developers
 to experiment and create online text adventure games. 
 As it stands the engine has the following capabilities:
 
@@ -52,10 +52,17 @@ As it stands the engine has the following capabilities:
 
 ## Quick Start Guide
 
-The following steps should get you up and running in under 10 seconds; in / directory.
+The project contains two seperate bin that can both be evoked from the command line:
 
-* cargo run
-* (using a telnet client) telnet localhost 8000
+* cargo run --bin muoxi_proxy
+    * Starts the main proxy server on websocket 8080, and listens for any incoming clients. 
+
+* cargo run --bin muoxi_client
+    * Starts the frontend client that is used to connect to the proxy server.
+
+* *(Not Implemented Yet)* cargo run --bin muoxi_engine
+    * Starts the main game engine running in it's own seperate process. The whole game is contained
+    within a TCP listening server that exchanges information back and forth between to the Proxy Server
 
 
 ## Road Map
@@ -95,5 +102,5 @@ that I think will make this an outstanding project.
 [travisimg]: https://travis-ci.org/duysqubix/MuOxi.svg?branch=master
 [travislink]: https://travis-ci.org/duysqubix/MuOxi
 [wikimudpage]: http://en.wikipedia.org/wiki/MUD
-[tokio]: https://docs.rs/tokio/0.2.0-alpha.6/tokio/
+[amethyst]: https://amethyst.rs/
 [discord]: https://discord.gg/pMnBmGv

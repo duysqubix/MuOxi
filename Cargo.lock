@@ -206,6 +206,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "muoxi_clients"
+version = "0.1.0"
+dependencies = [
+ "ws 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "net2"
 version = "0.2.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"

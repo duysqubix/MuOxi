@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Websocket Example</title>
+    <script>
+        // var socketUrl = "wss://echo.websocket.org";
+        var socketUrl = "ws://localhost:8080";
+        function submitMessage(evt) {
+            var messageToSend = document.getElementById("messageInput").value;
+            if (messageToSend) {
+                doSend(messageToSend);
+            }
+        }
+        websocket = new WebSocket(socketUrl);
+        websocket.onopen = function (evt) { onOpen(evt) };
+        websocket.onclose = function (evt) { onClose(evt) };
+        websocket.onmessage = function (evt) { onMessage(evt) };
+        websocket.onerror = function (evt) { onError(evt) };
+        function onOpen(evt) {
+            writeToScreen("CONNECTED");
+            doSend("WebSocket rocks");
+        }
+
+        function onClose(evt) {
+            writeToScreen("DISCONNECTED");
+        }
+
+        function onMessage(evt) {
+            writeToScreen('<span style="color: blue;">RESPONSE: ' + evt.data + '</span>');
+            // websocket.close();
+        }
+
+        function onError(evt) {
+            writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+        }
+
+        function doSend(message) {
+            writeToScreen("SENT: " + message);
+            websocket.send(message);
+        }
+
+        function writeToScreen(messageToSend) {
+            if (messageToSend) {
+                document.getElementById("messageBox").innerHTML += "<div>" + messageToSend + "</div>";
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="messageBox" style="width: 80vw; height: 80vh; overflow: auto; border: solid thin #000"></div>
+    <br />
+    <textarea name="messageInput" id="messageInput" style="height: 10vh; width: 50vw; float: left;"></textarea>
+    <input type="button" onclick="submitMessage(event)" style="width: 10vw;height: 10vh;margin-left: 10px;"
+        value="Submit" />
+</body>
+
+</html>

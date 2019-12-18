@@ -8,6 +8,9 @@ An asynchronous mud game engine written in Rust.
 """
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "muoxi_proxy"
+path = "src/main.rs"
 
 [dependencies]
 ws = "^0.9"
