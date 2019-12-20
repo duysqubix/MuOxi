@@ -21,78 +21,54 @@ impl HTML {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Client {
+pub struct ClientData {
     ip: String,
     token: Token,
-    sender: Sender,
 }
 
-impl Client {
-    fn new(ip: IpAddr, token: Token, sender: Sender) -> Self {
+impl ClientData {
+    fn new(ip: IpAddr, token: Token) -> Self {
         Self {
             ip: ip,
             token: token,
-            sender: sender,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Clients {
-    clients: HashMap<Client, IpAddr>,
+    pub client_list: HashMap<Sender, ClientData>,
 }
 
 impl Clients {
     pub fn new() -> Self {
         Self {
-            clients: HashMap::new(),
+            client_list: HashMap::new(),
         }
     }
     pub fn insert(&mut self, sender: Sender, ip: IpAddr) -> ws::Result<()> {
         let token = sender.token();
-        let client = Client::new(ip.clone(), token, sender);
+        let client_data = ClientData::new(ip, token);
 
-        self.clients.insert(client.clone(), ip);
+        self.client_list.insert(sender, client_data);
         Ok(())
     }
 
-    pub fn remove(&mut self, sender: &Sender) -> ws::Result<()> {
-        //     let client: Option<Client>;
 
-        //     for (client, _ip) in self.clients.iter() {
-        //         if client.sender == *sender {
-        //             println!("Removing :{:?}", client);
-        //             client = Some(client);
-        //             break;
-        //         } else {
-        //             client = None;
-        //         }
-        //     }
-
-        //     if let Some(client) = client {
-        //         self.clients
-        //             .remove(client)
-        //             .expect("Removing non existant client");
-        // }
-
-        // if let Some(client) = self.get(sender) {
-        //     let c = client;
-        //     if let Some(_) = self.clients.remove(c) {
-        //         // println!("Removed client: {:?}", c);
-        //     }
-        // }
-
-        Ok(())
+    pub fn remove(&mut self, sender: &Sender) -> Option<ClientData>{
+        self.client_list.remove(sender)
     }
+   
 }
 
 impl fmt::Display for Clients {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut fmt_string = "Connected Clients: \n".to_string();
 
-        for (client, ip) in self.clients.iter() {
+        for (_sender, client) in self.client_list.iter() {
             let token = client.token;
-            let tmp = format!("IP: {} Token: {}\n", ip, token.0);
+            let ip = client.ip.clone();
+            let tmp = format!("IP: {} Token: {}\n", ip , token.0);
             fmt_string.push_str(&tmp[..]);
         }
 
@@ -116,10 +92,25 @@ impl ProxyServer {
 
 impl Handler for ProxyServer {
     // Handle messages recieved in the websocket (in this case, only on /ws)
-    fn on_message(&mut self, _msg: Message) -> ws::Result<()> {
+    fn on_message(&mut self, msg: Message) -> ws::Result<()> {
         // Broadcast to all connections
-        let client_list = format!("[{}]", self.clients.borrow());
-        self.out.broadcast(Message::text(client_list))
+        // let client_list = format!("[{}]", self.clients.borrow());
+        // self.out.broadcast(Message::text(client_list))
+        let to_all = format!("{} says, {}", "User", msg);
+        let to_private = format!("You say, {}", msg);
+
+        let clients = self.clients.borrow_mut();
+
+        for (sender, _data) in clients.client_list.iter(){
+            if sender == &self.out{
+                // this is sender sending message
+                self.out.send(to_private.clone())?;
+            }else{
+                sender.send(to_all.clone())?;
+            }
+        }
+
+        Ok(())
     }
 
     fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
@@ -149,9 +140,14 @@ impl Handler for ProxyServer {
     }
 
     fn on_close(&mut self, code: CloseCode, reason: &str) {
-        println!("Closing: {:?}/{}", code, reason);
-        let mut client = self.clients.borrow_mut();
-        client.remove(&self.out).expect("Couldn't remove client");
-        // self.clients.borrow_mut().re
+        if let Err(e) = self.out.send(Message::text("Goodbye!".to_string())){
+            println!("Sender most likely already closed! :{}", e);
+        }
+
+        let mut clients = self.clients.borrow_mut();
+
+        if let Some(client_data) = clients.remove(&self.out){
+            println!("Closing connection to {}:{} for reason: {}{:?}", client_data.ip, client_data.token.0, reason, code); 
+        }
     }
 }
