@@ -77,11 +77,14 @@ As it stands the engine has the following capabilities:
 
 The project contains two seperate bin that can both be evoked from the command line:
 
-* cargo run --bin muoxi_proxy
-    * Starts the main proxy server on websocket 8080, and listens for any incoming clients. 
+* cargo run --bin muoxi_websocket
+    * Starts the websocket server listening for incoming webclients, *default 8000*
 
-* cargo run --bin muoxi_client
-    * Starts the frontend client that is used to connect to the proxy server.
+* cargo run --bin muoxi_telnet
+    * starts the basic telnet server listening for incoming telnet clients, *default 8001*
+
+* *(Not implemented Yet)* cargo run --bin muoxi_proxy
+    * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine.
 
 * *(Not Implemented Yet)* cargo run --bin muoxi_engine
     * Starts the main game engine running in it's own seperate process. The whole game is contained
