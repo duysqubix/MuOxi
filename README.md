@@ -3,7 +3,7 @@
 [![Build Status][travisimg]][travislink] 
 
 *MuOxi* is a modern library for creating [online multiplayer text
-games][wikimudpage] (MU* family) in Rust using the powerful and flexable [Amethyst][amethyst] game engine,. 
+games][wikimudpage] (MU* family) in Rust using the powerful and flexible [Amethyst][amethyst] game engine,. 
 It allows developers and coders to design and flesh out their worlds in a
 fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. Join us on [discord][discord].
 
@@ -15,6 +15,20 @@ fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. 
 The codebase is currently in *alpha* stage . While development continues,
 the master branch is essentially a working and very minimilistic weboscket server 
 operating over TCP. 
+
+## Road Map
+
+The bare minimum TODO features that must be implemented before I would consider it a bare mud game engine.
+
+* Allows for multiple communication protocols (*telnet, MCCP, websocket, etc*)
+* Allows for new player creation
+* Asks for a name and password
+* saves player info (etc. name, password)
+* Implements some basic commands: quit, say, tell, shutdown
+* Handles players disconnecting or quitting
+* Implements a periodic message every *n* seconds
+* Implements some rudimentary admin control (eg. muting another player)
+* Basic cardinal movement
 
 ## Core Design Architecture
 
@@ -29,12 +43,21 @@ information from players to the game itself, where then the game will react to t
 be seperated and communicate via a standard TCP server. The reason for this seperation, is to protect players from completely
 disconnecting from the game if changes to the game engine is made.
 
-The general layout looks like the following:
+The support for multiple type of connections is a must. Therefore the following shows an example design layout that
+has the ability to handle multiple communication protocols. Each comm type will have a unique port that must be addressed
+and acts like a proxy to the main Staging Area.
 
 ```
-------------------                ---------------------             ---------------
-| Client Frontend| <--Websocket--> |Proxy/Staging Area | <-- TCP --> | Game Engine |
-------------------                 ---------------------             ---------------
+------------
+| Websocket | <---------------- \
+------------                     \
+----------                        ---------------------             ---------------
+| Telnet | ---------------------->|Proxy/Staging Area | <-- TCP --> | Game Engine |
+----------                        ---------------------             ---------------
+                                 /
+--------                        /
+| MCCP | <----------------------
+--------
 ```
 
 This design is still in prototype phase.
@@ -63,20 +86,6 @@ The project contains two seperate bin that can both be evoked from the command l
 * *(Not Implemented Yet)* cargo run --bin muoxi_engine
     * Starts the main game engine running in it's own seperate process. The whole game is contained
     within a TCP listening server that exchanges information back and forth between to the Proxy Server
-
-
-## Road Map
-
-The bare minimum TODO features that must be implemented before I would consider it a bare mud game engine.
-
-* Allows for new player creation
-* Asks for a name and password
-* saves player info (etc. name, password)
-* Implements some basic commands: quit, say, tell, shutdown
-* Handles players disconnecting or quitting
-* Implements a periodic message every *n* seconds
-* Implements some rudimentary admin control (eg. muting another player)
-* Basic cardinal movement
 
 
 
