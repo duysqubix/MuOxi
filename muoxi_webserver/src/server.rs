@@ -1,5 +1,5 @@
 //!
-//! Handles all things related to ProxyServer
+//! Handles all things related to WebSocketServer
 //! Like finding a specific connectd sender etc..
 //!
 use mio::Token;
@@ -75,13 +75,13 @@ impl fmt::Display for Clients {
         write!(f, "{}", fmt_string)
     }
 }
-// ProxyServer web application handler
-pub struct ProxyServer {
+// WebSocketServer web application handler
+pub struct WebSocketServer {
     out: Sender,
     clients: Rc<RefCell<Clients>>,
 }
 
-impl ProxyServer {
+impl WebSocketServer {
     pub fn new(sender: Sender, clients: Rc<RefCell<Clients>>) -> Self {
         Self {
             out: sender,
@@ -90,7 +90,7 @@ impl ProxyServer {
     }
 }
 
-impl Handler for ProxyServer {
+impl Handler for WebSocketServer {
     // Handle messages recieved in the websocket (in this case, only on /ws)
     fn on_message(&mut self, msg: Message) -> ws::Result<()> {
         // Broadcast to all connections

@@ -1,4 +1,5 @@
 [workspace]
 members = [
-    'muoxi_proxy',
+    'muoxi_webserver
+    ',
 ]
