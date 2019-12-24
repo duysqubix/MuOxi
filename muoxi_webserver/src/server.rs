@@ -3,12 +3,14 @@
 //! Like finding a specific connectd sender etc..
 //!
 use mio::Token;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use ws::{CloseCode, Error, ErrorKind, Handler, Message, Request, Response, Sender};
+use std::net::TcpStream;
+use std::io::prelude::*;
+use bytes::BytesMut;
 
 type IpAddr = String;
 
@@ -22,8 +24,10 @@ impl HTML {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ClientData {
-    ip: String,
-    token: Token,
+    pub ip: String,
+    pub token: Token,
+    pub in_buf: Vec<u8>, //from connected client
+    pub out_buf: Vec<u8>, // to go to internal TCP client
 }
 
 impl ClientData {
@@ -31,6 +35,8 @@ impl ClientData {
         Self {
             ip: ip,
             token: token,
+            in_buf: Vec::new(), 
+            out_buf: Vec::new(),
         }
     }
 }
@@ -78,11 +84,11 @@ impl fmt::Display for Clients {
 // WebSocketServer web application handler
 pub struct WebSocketServer {
     out: Sender,
-    clients: Rc<RefCell<Clients>>,
+    clients: Arc<Mutex<Clients>>,
 }
 
 impl WebSocketServer {
-    pub fn new(sender: Sender, clients: Rc<RefCell<Clients>>) -> Self {
+    pub fn new(sender: Sender, clients: Arc<Mutex<Clients>>) -> Self {
         Self {
             out: sender,
             clients: clients,
@@ -93,22 +99,10 @@ impl WebSocketServer {
 impl Handler for WebSocketServer {
     // Handle messages recieved in the websocket (in this case, only on /ws)
     fn on_message(&mut self, msg: Message) -> ws::Result<()> {
-        // Broadcast to all connections
-        // let client_list = format!("[{}]", self.clients.borrow());
-        // self.out.broadcast(Message::text(client_list))
-        let to_all = format!("{} says, {}", "User", msg);
-        let to_private = format!("You say, {}", msg);
-
-        let clients = self.clients.borrow_mut();
-
-        for (sender, _data) in clients.client_list.iter(){
-            if sender == &self.out{
-                // this is sender sending message
-                self.out.send(to_private.clone())?;
-            }else{
-                sender.send(to_all.clone())?;
-            }
-        }
+        // write client incoming message to in_buf, will be used by TCPinternal to redirect data to other end.
+        let mut clients = self.clients.lock().unwrap();
+        let mut client = clients.client_list.get_mut(&self.out).unwrap();
+        client.in_buf = Vec::from(format!("{}", msg).as_bytes());
 
         Ok(())
     }
@@ -117,7 +111,8 @@ impl Handler for WebSocketServer {
         if let Some(ip_addr) = shake.remote_addr()? {
             println!("Connection opened from {}.", ip_addr);
             self.clients
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .insert(self.out.clone(), ip_addr)
                 .expect("Couldn't add client to global client list");
         } else {
@@ -144,7 +139,7 @@ impl Handler for WebSocketServer {
             println!("Sender most likely already closed! :{}", e);
         }
 
-        let mut clients = self.clients.borrow_mut();
+        let mut clients = self.clients.lock().unwrap();
 
         if let Some(client_data) = clients.remove(&self.out){
             println!("Closing connection to {}:{} for reason: {}{:?}", client_data.ip, client_data.token.0, reason, code); 
