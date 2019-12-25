@@ -1,4 +1,8 @@
 [workspace]
 members = [
     'muoxi_webserver',
+    'muoxi_staging',
 ]
+
+
+
