@@ -14,4 +14,4 @@ futures = "^0.3"
 
 [[bin]]
 name = "muoxi_staging"
-path = "src/main.rs"
+path = "src/staging_proxy.rs"
