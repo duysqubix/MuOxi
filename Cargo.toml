@@ -2,6 +2,7 @@
 members = [
     'muoxi_webserver',
     'muoxi_staging',
+    'muoxi_engine'
 ]
 
 

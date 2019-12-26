@@ -9,7 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use futures::future::try_join;
 use futures::FutureExt;
 
-use std::env;
+use std::str;
 use std::error::Error;
 
 
@@ -26,6 +26,7 @@ async fn main() -> Result<(), Box< dyn Error>>{
 
     while let Ok((inbound, _)) = listener.accept().await{
         // do proxy work here.
+
         let proxy = transfer(inbound, game_addr.clone()).map(|r|{
             if let Err(e) = r {
                 println!("Failed to transfer; error={}", e);
@@ -40,6 +41,15 @@ async fn main() -> Result<(), Box< dyn Error>>{
 
 async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>>{
     let mut outbound = TcpStream::connect(&game_addr).await?;
+    let inbound_addr = inbound.peer_addr().unwrap();
+    let outbound_addr = outbound.peer_addr().unwrap();
+
+
+    let mut buf = [0;1024];
+
+    let n = inbound.peek(&mut buf).await?;
+    println!("Proxing {} to {}, msg: {}", inbound_addr, outbound_addr, str::from_utf8(&buf[0..n]).unwrap());
+
 
     let (mut ri, mut wi) = inbound.split();
     let (mut ro, mut wo) = outbound.split();
@@ -49,6 +59,5 @@ async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<d
 
 
     try_join(client_to_server, server_to_client).await?;
-
     Ok(())
 }
