@@ -60,7 +60,7 @@ impl Stream for Client {
 
 #[derive(Debug)]
 struct Server {
-    clients: HashMap<SocketAddr, i32>,
+    clients: HashMap<SocketAddr, usize>,
 }
 
 impl Server {
@@ -70,12 +70,10 @@ impl Server {
         }
     }
 
-    // pub async fn send(&mut self, addr: &SocketAddr, msg: String) -> Result<(), Box<dyn Error>> {
-    //     if let Some(c) = self.clients.get_mut(&addr) {
-    //         c.lines.send(msg).await?;
-    //     }
-    //     Ok(())
-    // }
+    pub fn add(&mut self, addr: SocketAddr) {
+        let uid = self.clients.len();
+        self.clients.insert(addr, uid + 1);
+    }
 }
 
 #[tokio::main]
@@ -117,18 +115,9 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
             .lines
             .send("Please enter `name` or `new`".to_string())
             .await?;
-        server.lock().await.clients.insert(addr.clone(), 1);
+        server.lock().await.add(addr.clone());
     }
-    // server_send(server, &addr, "Please enter `name` or `new`").await?;
 
-    // loop {
-    //     let mut server = server.lock().await;
-    //     let client = server.clients.get_mut(&addr);
-    // }
-
-    // let mut server = server.lock().await;
-    // let client = server.clients.get_mut(&addr);
-    // if let Some(c) = client {
     while let Some(result) = new_client.next().await {
         println!("{:?}", result);
     }
@@ -136,16 +125,6 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
 
     Ok(())
 }
-
-// async fn server_send<'a>(
-//     server: Arc<Mutex<Server>>,
-//     addr: &SocketAddr,
-//     msg: &'a str,
-// ) -> Result<(), Box<dyn Error>> {
-//     let mut server = server.lock().await;
-//     server.send(addr, msg.to_string()).await?;
-//     Ok(())
-// }
 
 ///
 /// Example usage
