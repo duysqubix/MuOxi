@@ -3,48 +3,160 @@
 //! game engine response to connected clients.
 //!
 
-use tokio::io;
-use tokio::net::{TcpListener, TcpStream};
+mod copyover;
+mod states;
 
 use futures::future::try_join;
-use futures::{ready, FutureExt};
-
+use futures::SinkExt;
+use states::{AwaitingName, ConnState, EnterGame, MainMenu};
+use std::collections::HashMap;
 use std::error::Error;
-use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::str;
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{env, str};
+use tokio::net::{TcpListener, TcpStream};
+use tokio::stream::{Stream, StreamExt};
+use tokio::sync::Mutex;
+use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+
+static GAME_ADDR: &'static str = "127.0.0.1:4567";
+static PROXY_ADDR: &'static str = "127.0.0.1:8000";
+
+#[derive(Debug)]
+pub enum Message {
+    Recieved(String),
+}
+
+#[derive(Debug)]
+struct Client {
+    state: states::ConnState,
+    lines: Framed<TcpStream, LinesCodec>,
+}
+
+impl Client {
+    pub async fn new(stream: TcpStream) -> tokio::io::Result<Self> {
+        Ok(Self {
+            state: ConnState::AwaitingName(AwaitingName::new()),
+            lines: Framed::new(stream, LinesCodec::new()),
+        })
+    }
+}
+
+impl Stream for Client {
+    type Item = Result<Message, LinesCodecError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let result: Option<_> = futures::ready!(Pin::new(&mut self.lines).poll_next(cx));
+
+        Poll::Ready(match result {
+            Some(Ok(message)) => Some(Ok(Message::Recieved(message))),
+            Some(Err(e)) => Some(Err(e)),
+            None => None,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct Server {
+    clients: HashMap<SocketAddr, i32>,
+}
+
+impl Server {
+    pub fn new() -> Self {
+        Self {
+            clients: HashMap::new(),
+        }
+    }
+
+    // pub async fn send(&mut self, addr: &SocketAddr, msg: String) -> Result<(), Box<dyn Error>> {
+    //     if let Some(c) = self.clients.get_mut(&addr) {
+    //         c.lines.send(msg).await?;
+    //     }
+    //     Ok(())
+    // }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    env::set_var("RUST_LOG", "info, warn, error,test");
+    pretty_env_logger::init();
 
-    let listen_addr = "127.0.0.1:8000".to_string();
-    let game_addr = "127.0.0.1:4567".to_string();
+    let clients = Arc::new(Mutex::new(Server::new()));
 
     println!(
         "TCP Client listening on {} proxying to {}",
-        listen_addr, game_addr
+        PROXY_ADDR, GAME_ADDR
     );
 
-    let mut listener = TcpListener::bind(&listen_addr).await?;
+    let mut listener = TcpListener::bind(&PROXY_ADDR).await?;
 
-    while let Ok((inbound, _)) = listener.accept().await {
-        // do proxy work here.
-
-        let proxy = transfer(inbound, game_addr.clone()).map(|r| {
-            if let Err(e) = r {
-                println!("Failed to transfer; error={}", e);
+    while let Ok((inbound, addr)) = listener.accept().await {
+        // For each inbound client - step through states and only when
+        // when entering game does it invoke the transfer async function
+        let new_client = Arc::clone(&clients);
+        println!("New user! on {}", addr);
+        tokio::spawn(async move {
+            if let Err(e) = process(new_client, inbound).await {
+                println!("An error occured; error={:?}", e);
             }
         });
-
-        tokio::spawn(proxy);
     }
 
     Ok(())
 }
 
+async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    // add client to server instance
+    let addr = stream.peer_addr()?;
+    let mut new_client = Client::new(stream).await?;
+
+    {
+        new_client
+            .lines
+            .send("Please enter `name` or `new`".to_string())
+            .await?;
+        server.lock().await.clients.insert(addr.clone(), 1);
+    }
+    // server_send(server, &addr, "Please enter `name` or `new`").await?;
+
+    // loop {
+    //     let mut server = server.lock().await;
+    //     let client = server.clients.get_mut(&addr);
+    // }
+
+    // let mut server = server.lock().await;
+    // let client = server.clients.get_mut(&addr);
+    // if let Some(c) = client {
+    while let Some(result) = new_client.next().await {
+        println!("{:?}", result);
+    }
+    // }
+
+    Ok(())
+}
+
+// async fn server_send<'a>(
+//     server: Arc<Mutex<Server>>,
+//     addr: &SocketAddr,
+//     msg: &'a str,
+// ) -> Result<(), Box<dyn Error>> {
+//     let mut server = server.lock().await;
+//     server.send(addr, msg.to_string()).await?;
+//     Ok(())
+// }
+
+///
+/// Example usage
+/// ```rust
+///     let proxy = transfer(inbound, GAME_ADDR.to_string().clone()).map(|r| {
+///        if let Err(e) = r {
+///            println!("Failed to transfer; error={}", e);
+///        }
+///    });
+/// ```
+///
 async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>> {
     let mut outbound = TcpStream::connect(&game_addr).await?;
     let inbound_addr = inbound.peer_addr().unwrap();
@@ -63,101 +175,16 @@ async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<d
     let (mut ri, mut wi) = inbound.split();
     let (mut ro, mut wo) = outbound.split();
 
-    let client_to_server = copy(&mut ri, &mut wo, &inbound_addr, &outbound_addr);
-    let server_to_client = copy(&mut ro, &mut wi, &outbound_addr, &inbound_addr);
+    let client_to_server = copyover::copy(&mut ri, &mut wo, &inbound_addr, &outbound_addr);
+    let server_to_client = copyover::copy(&mut ro, &mut wi, &outbound_addr, &inbound_addr);
 
     try_join(client_to_server, server_to_client).await?;
     Ok(())
 }
 
-#[derive(Debug)]
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct CopyOver<'a, R: ?Sized, W: ?Sized> {
-    reader: &'a mut R,
-    read_done: bool,
-    writer: &'a mut W,
-    pos: usize,
-    cap: usize,
-    amt: u64,
-    buf: Box<[u8]>,
-    to: &'a SocketAddr,
-    from: &'a SocketAddr,
-}
+// machine!{
+//     enum ConnState{
 
-pub fn copy<'a, R, W>(
-    reader: &'a mut R,
-    writer: &'a mut W,
-    from: &'a SocketAddr,
-    to: &'a SocketAddr,
-) -> CopyOver<'a, R, W>
-where
-    R: io::AsyncRead + Unpin + ?Sized,
-    W: io::AsyncWrite + Unpin + ?Sized,
-{
-    CopyOver {
-        reader,
-        read_done: false,
-        writer,
-        amt: 0,
-        pos: 0,
-        cap: 0,
-        buf: Box::new([0; 2048]),
-        to: to,
-        from: from,
-    }
-}
-
-impl<R, W> Future for CopyOver<'_, R, W>
-where
-    R: io::AsyncRead + Unpin + ?Sized,
-    W: io::AsyncWrite + Unpin + ?Sized,
-{
-    type Output = io::Result<u64>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        loop {
-            // If our buffer is empty, then we need to read some data to
-            // continue.
-            if self.pos == self.cap && !self.read_done {
-                let me = &mut *self;
-                let n = ready!(Pin::new(&mut *me.reader).poll_read(cx, &mut me.buf))?;
-                if n == 0 {
-                    self.read_done = true;
-                } else {
-                    self.pos = 0;
-                    self.cap = n;
-                }
-            }
-
-            {
-                let me = &mut *self;
-                let _ = str::from_utf8(&me.buf[me.pos..me.cap - 2])
-                    .map(|string| println!("{}->{}: {} ", me.from, me.to, string))
-                    .map_err(|e| println!("{}", e));
-            }
-            // If our buffer has some data, let's write it out!
-            while self.pos < self.cap {
-                let me = &mut *self;
-                let i = ready!(Pin::new(&mut *me.writer).poll_write(cx, &me.buf[me.pos..me.cap]))?;
-                if i == 0 {
-                    return Poll::Ready(Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "write zero byte into writer",
-                    )));
-                } else {
-                    self.pos += i;
-                    self.amt += i as u64;
-                }
-            }
-
-            // If we've written al the data and we've seen EOF, flush out the
-            // data and finish the transfer.
-            // done with the entire transfer.
-            if self.pos == self.cap && self.read_done {
-                let me = &mut *self;
-                ready!(Pin::new(&mut *me.writer).poll_flush(cx))?;
-                return Poll::Ready(Ok(self.amt));
-            }
-        }
-    }
-}
+//     }
+// }
+// fn main() {}
