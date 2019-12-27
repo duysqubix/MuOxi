@@ -7,7 +7,7 @@ mod comms;
 mod connstates;
 mod copyover;
 
-use comms::{Client, ClientAccount, Server, UID};
+use comms::{Client, ClientAccount, Comms, Server, UID};
 use connstates::{NewAcct, Next};
 use futures::future::try_join;
 use futures::Future;
@@ -96,7 +96,8 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
 
         for (uid, acct) in server.accounts.iter() {
             println!("Name: {}", acct.name);
-            if let Some((socket, tx)) = server.clients.get(&uid) {
+            if let Some(comms) = server.clients.get(&uid) {
+                let Comms(socket, _) = comms;
                 let msg = format!(
                     "Hello, {}. You belong to port: {}/{}",
                     acct.name, socket, uid

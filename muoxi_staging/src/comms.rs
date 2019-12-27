@@ -52,7 +52,8 @@ impl Client {
     ) -> tokio::io::Result<Self> {
         let addr = stream.peer_addr()?;
         let (tx, rx) = mpsc::unbounded_channel();
-        server.lock().await.clients.insert(uid, (addr, tx));
+        let comms = Comms(addr, tx);
+        server.lock().await.clients.insert(uid, comms);
         Ok(Self {
             uid: uid,
             state: ConnState::AwaitingAcctName(AwaitingAcctName::new()),
@@ -82,8 +83,11 @@ impl Stream for Client {
 }
 
 #[derive(Debug)]
+pub struct Comms(pub SocketAddr, pub Tx);
+
+#[derive(Debug)]
 pub struct Server {
-    pub clients: HashMap<UID, (SocketAddr, Tx)>,
+    pub clients: HashMap<UID, Comms>,
     pub accounts: HashMap<UID, ClientAccount>,
 }
 
@@ -96,12 +100,12 @@ impl Server {
     }
 
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
-        for (uid, (client, tx)) in self.clients.iter_mut() {
-            if *client != sender {
-                let _ = tx.send(message.into());
+        for (uid, comms) in self.clients.iter_mut() {
+            if comms.0 != sender {
+                let _ = comms.1.send(message.into());
             } else {
                 let msg = format!("You broadcasted, {}", message);
-                let _ = tx.send(msg.into());
+                let _ = comms.1.send(msg.into());
             }
         }
     }
