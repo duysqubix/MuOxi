@@ -3,125 +3,153 @@
 //! game engine response to connected clients.
 //!
 
+mod comms;
+mod connstates;
 mod copyover;
-mod states;
 
+use comms::{Client, ClientAccount, Server, UID};
+use connstates::{NewAcct, Next};
 use futures::future::try_join;
+use futures::Future;
 use futures::SinkExt;
-use states::{AwaitingName, ConnState, EnterGame, MainMenu};
-use std::collections::HashMap;
+use rand::prelude::*;
 use std::error::Error;
-use std::net::SocketAddr;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::{env, str};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::stream::{Stream, StreamExt};
 use tokio::sync::Mutex;
-use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
+use tokio_util::codec::LinesCodecError;
 
 static GAME_ADDR: &'static str = "127.0.0.1:4567";
 static PROXY_ADDR: &'static str = "127.0.0.1:8000";
 
-#[derive(Debug)]
-pub enum Message {
-    Recieved(String),
-}
-
-#[derive(Debug)]
-struct Client {
-    state: states::ConnState,
-    lines: Framed<TcpStream, LinesCodec>,
-}
-
-impl Client {
-    pub async fn new(stream: TcpStream) -> tokio::io::Result<Self> {
-        Ok(Self {
-            state: ConnState::AwaitingName(AwaitingName::new()),
-            lines: Framed::new(stream, LinesCodec::new()),
-        })
-    }
-}
-
-impl Stream for Client {
-    type Item = Result<Message, LinesCodecError>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let result: Option<_> = futures::ready!(Pin::new(&mut self.lines).poll_next(cx));
-
-        Poll::Ready(match result {
-            Some(Ok(message)) => Some(Ok(Message::Recieved(message))),
-            Some(Err(e)) => Some(Err(e)),
-            None => None,
-        })
-    }
-}
-
-#[derive(Debug)]
-struct Server {
-    clients: HashMap<SocketAddr, usize>,
-}
-
-impl Server {
-    pub fn new() -> Self {
-        Self {
-            clients: HashMap::new(),
-        }
-    }
-
-    pub fn add(&mut self, addr: SocketAddr) {
-        let uid = self.clients.len();
-        self.clients.insert(addr, uid + 1);
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    env::set_var("RUST_LOG", "info, warn, error,test");
-    pretty_env_logger::init();
-
-    let clients = Arc::new(Mutex::new(Server::new()));
-
-    println!(
-        "TCP Client listening on {} proxying to {}",
-        PROXY_ADDR, GAME_ADDR
-    );
-
-    let mut listener = TcpListener::bind(&PROXY_ADDR).await?;
-
-    while let Ok((inbound, addr)) = listener.accept().await {
-        // For each inbound client - step through states and only when
-        // when entering game does it invoke the transfer async function
-        let new_client = Arc::clone(&clients);
-        println!("New user! on {}", addr);
-        tokio::spawn(async move {
-            if let Err(e) = process(new_client, inbound).await {
-                println!("An error occured; error={:?}", e);
-            }
-        });
-    }
-
+async fn send<'a>(client: &'a mut Client, msg: &'a str) -> Result<(), LinesCodecError> {
+    client.lines.send(msg.into()).await?;
     Ok(())
+}
+
+async fn get<'a>(client: &'a mut Client) -> String {
+    if let Some(Ok(v)) = client.lines.next().await {
+        v
+    } else {
+        "...Client Disconnected...".to_string()
+    }
 }
 
 async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     // add client to server instance
+    let uid: UID = rand::thread_rng().gen();
     let addr = stream.peer_addr()?;
-    let mut new_client = Client::new(stream).await?;
+    let mut new_client = Client::new(uid, server.clone(), stream).await?;
+
+    // i
+
+    // send intro message
+    // name -> try to find account
+    // new -> create new account
+    let mut new_process = true;
+    let mut acct_error_counter: usize = 0;
+    while new_process {
+        send(&mut new_client, "Please enter account `name` or type `new`").await?;
+        let response = get(&mut new_client).await;
+        match response.to_lowercase().as_str() {
+            "new" => {
+                let greetings = format!(
+                    "{}\r\n{}\r\n",
+                    "Puff the Magic Dragon says, Welcome to MuOxi, enjoy your stay. :)",
+                    "What be your name?"
+                );
+                send(&mut new_client, greetings.as_str()).await?;
+                let new_name = get(&mut new_client).await;
+
+                new_client.state = new_client.state.on_new_acct(NewAcct::new(new_name.clone()));
+                let new_acct = ClientAccount::new(new_name.clone());
+
+                {
+                    let mut server = server.lock().await;
+                    server.accounts.insert(uid, new_acct);
+                }
+
+                let r = format!("Welcome, {}! Glad to have you on board.", new_name);
+
+                send(&mut new_client, r.as_str()).await?;
+                new_process = false;
+                continue;
+            }
+            _ => {
+                if acct_error_counter == 3 {
+                    send(&mut new_client, "Max attempts reached.. disconnecting\r\n").await?;
+                    new_process = false;
+                    continue;
+                }
+                // println!("Attempting to find client...");
+                let err_msg = format!("Couldn't find account name with `{}`\r\n", response);
+                send(&mut new_client, err_msg.as_str()).await?;
+                acct_error_counter += 1;
+            }
+        }
+    }
 
     {
-        new_client
-            .lines
-            .send("Please enter `name` or `new`".to_string())
-            .await?;
-        server.lock().await.add(addr.clone());
+        let mut server = server.lock().await;
+
+        for (uid, acct) in server.accounts.iter() {
+            println!("Name: {}", acct.name);
+            if let Some((socket, tx)) = server.clients.get(&uid) {
+                let msg = format!(
+                    "Hello, {}. You belong to port: {}/{}",
+                    acct.name, socket, uid
+                );
+                send(&mut new_client, msg.as_str()).await?;
+            }
+        }
     }
 
-    while let Some(result) = new_client.next().await {
-        println!("{:?}", result);
-    }
+    // let name = new_client.lines.next().await;
+    // if let Some(v) = name {
+    //     if let Ok(x) = v {
+    //         new_client.name = x.clone();
+    //     }
     // }
+
+    // process clients input until a disconnect happens
+    // while let Some(result) = new_client.next().await {
+    //     match result {
+    //         // Information coming in from individual client
+    //         Ok(Message::FromClient(msg)) => {
+    //             let resp = format!("You say, {}", msg);
+    //             new_client.lines.send(resp).await?;
+    //             {
+    //                 let mut server = server.lock().await;
+    //                 let msg = format!("{} says, {}", new_client.name, msg);
+    //                 server.broadcast(addr, &msg).await;
+    //             }
+    //         }
+
+    //         // Information coming in from Clients Rx channel
+    //         Ok(Message::OnRx(msg)) => {
+    //             // process information coming from other clients
+    //             new_client.lines.send(msg).await?;
+    //         }
+    //         // An error has occured
+    //         Err(e) => {
+    //             println!(
+    //                 "an error occured whiel processing input for {}; error={:?}",
+    //                 &addr, e
+    //             );
+    //         }
+    //     }
+    // }
+    // user disconnecting, remove from server list
+    {
+        let mut server = server.lock().await;
+        server.clients.remove(&uid);
+        server.accounts.remove(&uid);
+
+        let msg = format!("{} has disconnected", &addr);
+        server.broadcast(addr, &msg).await;
+    }
 
     Ok(())
 }
@@ -161,9 +189,31 @@ async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<d
     Ok(())
 }
 
-// machine!{
-//     enum ConnState{
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    env::set_var("RUST_LOG", "info, warn, error,test");
+    pretty_env_logger::init();
 
-//     }
-// }
-// fn main() {}
+    let clients = Arc::new(Mutex::new(Server::new()));
+
+    println!(
+        "TCP Client listening on {} proxying to {}",
+        PROXY_ADDR, GAME_ADDR
+    );
+
+    let mut listener = TcpListener::bind(&PROXY_ADDR).await?;
+
+    while let Ok((inbound, addr)) = listener.accept().await {
+        // For each inbound client - step through states and only when
+        // when entering game does it invoke the transfer async function
+        let server = Arc::clone(&clients);
+        println!("New user! on {}", addr);
+        tokio::spawn(async move {
+            if let Err(e) = process(server, inbound).await {
+                println!("An error occured; error={:?}", e);
+            }
+        });
+    }
+
+    Ok(())
+}

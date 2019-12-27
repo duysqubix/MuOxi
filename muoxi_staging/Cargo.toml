@@ -13,6 +13,7 @@ tokio-util = { version = "^0.2", features = ["full"] }
 futures = "^0.3"
 log = "^0.4"
 machine = "0.3.0"
+rand = "^0.7"
 
 
 [[bin]]
