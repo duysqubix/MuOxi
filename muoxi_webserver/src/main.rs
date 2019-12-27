@@ -59,6 +59,13 @@ fn main() {
 
             }
             // second check check to see if port has been written to
+            let mut response = String::new();
+            let num_bytes = client.stream.read_to_string(&mut response).unwrap_or(0);
+            if num_bytes > 0{
+                println!("Response is: {}", &response[..num_bytes])
+            }
+
+            
             // evoke the clients.sender to send message back to websocket client..
         }
     });
