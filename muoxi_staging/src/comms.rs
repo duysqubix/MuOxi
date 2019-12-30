@@ -1,4 +1,5 @@
 use crate::connstates::{AwaitingAcctName, ConnState};
+use bson::oid::ObjectId;
 use futures::SinkExt;
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -10,7 +11,7 @@ use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
-pub type UID = usize;
+pub type UID = ObjectId;
 type Tx = mpsc::UnboundedSender<String>;
 type Rx = mpsc::UnboundedReceiver<String>;
 
@@ -53,7 +54,7 @@ impl Client {
         let addr = stream.peer_addr()?;
         let (tx, rx) = mpsc::unbounded_channel();
         let comms = Comms(addr, tx);
-        server.lock().await.clients.insert(uid, comms);
+        server.lock().await.clients.insert(uid.clone(), comms);
         Ok(Self {
             uid: uid,
             state: ConnState::AwaitingAcctName(AwaitingAcctName::new()),
@@ -88,6 +89,7 @@ pub struct Comms(pub SocketAddr, pub Tx);
 #[derive(Debug)]
 pub struct Server {
     pub clients: HashMap<UID, Comms>,
+
     pub accounts: HashMap<UID, ClientAccount>,
 }
 

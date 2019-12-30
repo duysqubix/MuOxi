@@ -10,8 +10,6 @@ fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. 
 
 ## Current Status
 
-*Rustc 1.39> [Stable/Nightly]*
-
 The codebase is currently in *alpha* stage . While development continues,
 the master branch has transformed into a telnet server with most of the work
 being done on the staging/proxy server *more information on project design below*. 
