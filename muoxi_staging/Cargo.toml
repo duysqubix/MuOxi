@@ -14,8 +14,9 @@ futures = "^0.3"
 log = "^0.4"
 machine = "0.3.0"
 rand = "^0.7"
-
+bson = "0.14.0"
 
 [[bin]]
 name = "muoxi_staging"
 path = "src/staging_proxy.rs"
+

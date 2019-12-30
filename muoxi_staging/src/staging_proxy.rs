@@ -7,6 +7,7 @@ mod comms;
 mod connstates;
 mod copyover;
 
+use bson::oid::ObjectId;
 use comms::{Client, ClientAccount, Comms, Server, UID};
 use connstates::{NewAcct, Next};
 use futures::future::try_join;
@@ -39,9 +40,10 @@ async fn get<'a>(client: &'a mut Client) -> String {
 
 async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     // add client to server instance
-    let uid: UID = rand::thread_rng().gen();
+    // let uid: UID = rand::thread_rng().gen();
+    let uid: UID = ObjectId::new()?;
     let addr = stream.peer_addr()?;
-    let mut new_client = Client::new(uid, server.clone(), stream).await?;
+    let mut new_client = Client::new(uid.clone(), server.clone(), stream).await?;
 
     // i
 
@@ -68,7 +70,7 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
 
                 {
                     let mut server = server.lock().await;
-                    server.accounts.insert(uid, new_acct);
+                    server.accounts.insert(uid.clone(), new_acct);
                 }
 
                 let r = format!("Welcome, {}! Glad to have you on board.", new_name);
@@ -92,14 +94,14 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
     }
 
     {
-        let mut server = server.lock().await;
+        let server = server.lock().await;
 
         for (uid, acct) in server.accounts.iter() {
             println!("Name: {}", acct.name);
-            if let Some(comms) = server.clients.get(&uid) {
+            if let Some(comms) = server.clients.get(&uid.clone()) {
                 let Comms(socket, _) = comms;
                 let msg = format!(
-                    "Hello, {}. You belong to port: {}/{}",
+                    "Hello, {}. You belong to port: {}/ {}",
                     acct.name, socket, uid
                 );
                 send(&mut new_client, msg.as_str()).await?;
