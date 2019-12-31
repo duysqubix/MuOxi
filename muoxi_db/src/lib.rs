@@ -178,8 +178,8 @@ impl DatabaseHandler {
     ///
     pub fn update<T: Serialize + MongoDocument>(
         &mut self,
-        object: T,
-        collection: Collection,
+        object: &T,
+        collection: &Collection,
         filter_on: utils::FilterOn,
         find_options: impl Into<Option<FindOptions>>,
         update_options: Option<UpdateOptions>,
@@ -187,7 +187,7 @@ impl DatabaseHandler {
         self.collection_exists(&collection)?;
 
         // take object and extract either uid or name to search on from database
-        let cursor = self.get_docs(&object, &collection, filter_on, find_options)?;
+        let cursor = self.get_docs(object, collection, filter_on, find_options)?;
         let updated_document = self.serialize_obj(&object)?;
 
         for result in cursor {
