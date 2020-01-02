@@ -2,14 +2,14 @@ pub mod clients;
 pub mod utils;
 
 use bson::{bson, doc, Bson, Document, EncoderResult};
-use mongodb::error::ErrorKind;
 use mongodb::error::Result as MongoResult;
+use mongodb::error::{Error, ErrorKind};
 use mongodb::options::*;
 use mongodb::{Client, Collection, Cursor, Database};
 use serde::Serialize;
 use utils::{FilterOn, MongoDocument};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DatabaseHandler {
     pub client: Option<Client>,
     pub db: Option<Database>,
@@ -44,12 +44,21 @@ impl DatabaseHandler {
         Ok(())
     }
 
-    pub fn get_db<'a>(&mut self) -> Result<&Database, &'a str> {
+    pub fn get_db<'a>(&mut self) -> MongoResult<&Database> {
         if let Some(db) = &self.db {
             Ok(db)
         } else {
-            Err("Internal DB is set to None")
+            let err = Error::from(ErrorKind::OperationError {
+                message: "Error finding database".to_string(),
+            });
+            Err(err)
         }
+    }
+
+    pub fn get_collection<'a>(&mut self, collection: &'a str) -> MongoResult<Collection> {
+        let db = self.get_db()?;
+        let col = db.collection(collection);
+        Ok(col)
     }
 
     pub fn collection_exists(&mut self, col: &Collection) -> MongoResult<bool> {
