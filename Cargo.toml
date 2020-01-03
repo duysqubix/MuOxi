@@ -5,6 +5,7 @@ members = [
     'muoxi_engine',
     'muoxi_db',
     'muoxi_states',
+    'muoxi_watchdog',
     'tester'
 ]
 
