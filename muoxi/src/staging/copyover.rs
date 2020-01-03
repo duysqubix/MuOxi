@@ -1,3 +1,7 @@
+//!
+//! A custom reimplementation of [tokio::io::copy](https://docs.rs/tokio/0.2.6/tokio/io/fn.copy.html)
+//!
+
 use futures::ready;
 use log::{info, warn};
 use std::future::Future;
@@ -7,6 +11,40 @@ use std::str;
 use std::task::{Context, Poll};
 use tokio::io;
 
+/// Asynchronously copies the entire contents of a reader into a writer.
+///
+/// *difference it echos information being passed from reader to writer*
+///
+/// This function returns a future that will continuously read data from
+/// `reader` and then write it into `writer` in a streaming fashion until
+/// `reader` returns EOF.
+///
+/// On success, the total number of bytes that were copied from `reader` to
+/// `writer` is returned.
+///
+/// This is an asynchronous version of [`std::io::copy`][std].
+///
+/// # Errors
+///
+/// The returned future will finish with an error will return an error
+/// immediately if any call to `poll_read` or `poll_write` returns an error.
+///
+/// # Examples
+///
+/// ```
+///
+/// # async fn dox() -> std::io::Result<()> {
+/// let mut reader: &[u8] = b"hello";
+/// let mut writer: Vec<u8> = vec![];
+///
+/// copy(&mut reader, &mut writer).await?;
+///
+/// assert_eq!(&b"hello"[..], &writer[..]);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// [std]: https://doc.rust-lang.org/std/io/fn.copy.html
 #[derive(Debug)]
 #[must_use = "futures do nothing unless you `.await` or poll them"]
 pub struct CopyOver<'a, R: ?Sized, W: ?Sized> {

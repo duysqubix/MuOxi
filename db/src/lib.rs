@@ -1,4 +1,15 @@
-pub mod clients;
+//!
+//! Rust implmentation of MongoDB Client. One must have already started a MongoDB server, otherwise
+//! when attempting to create a handler to the database, it will panic.
+//!
+//! ### Basic Usage
+//! ```rust
+//! let mut mongo = DatabaseHandler::new("Caller".to_string()).unwrap(); // will panic if no mongodb server is running.
+//! mongo.set_db("test").unwrap(); // sets internal database
+//! ```
+//!
+
+pub mod templates;
 pub mod utils;
 
 use bson::{bson, doc, Bson, Document, EncoderResult};
@@ -9,13 +20,19 @@ use mongodb::{Client, Collection, Cursor, Database};
 use serde::Serialize;
 use utils::{FilterOn, MongoDocument};
 
+/// Wrapper to MongoDB running in background
 #[derive(Debug, Clone)]
 pub struct DatabaseHandler {
+    /// Holds the actual client handler to MongoDB
     pub client: Option<Client>,
+
+    /// Database handler within MongoDB
+    /// set using `DatabaseHandler::set_db()`
     pub db: Option<Database>,
 }
 
 impl DatabaseHandler {
+    /// Create a new handler to MongoDB
     pub fn new(name: String) -> MongoResult<Self> {
         let mut client_options = ClientOptions::parse("mongodb://localhost:27017")?;
         client_options.app_name = Some(name);
@@ -28,6 +45,7 @@ impl DatabaseHandler {
         })
     }
 
+    /// retrieve current database name
     pub fn db_name(&self) -> &str {
         if let Some(db) = &self.db {
             db.name()
@@ -36,6 +54,8 @@ impl DatabaseHandler {
         }
     }
 
+    /// set database within client, all actions
+    /// will be targeted to supplied database name.
     pub fn set_db<'a>(&mut self, db: &'a str) -> MongoResult<()> {
         if let Some(client) = &self.client {
             self.db = Some(client.database(db));
@@ -44,6 +64,8 @@ impl DatabaseHandler {
         Ok(())
     }
 
+    /// Returns reference to Database Handler, if db is not set
+    /// it will return Error;
     pub fn get_db<'a>(&mut self) -> MongoResult<&Database> {
         if let Some(db) = &self.db {
             Ok(db)
@@ -55,12 +77,14 @@ impl DatabaseHandler {
         }
     }
 
+    /// Returns Collection within current database
     pub fn get_collection<'a>(&mut self, collection: &'a str) -> MongoResult<Collection> {
         let db = self.get_db()?;
         let col = db.collection(collection);
         Ok(col)
     }
 
+    /// Checks if collection exists within database
     pub fn collection_exists(&mut self, col: &Collection) -> MongoResult<bool> {
         let db = self.get_db().unwrap();
         let collection_names = db.list_collection_names(None)?;
@@ -77,10 +101,46 @@ impl DatabaseHandler {
         .into())
     }
 
+    /// Attempts to serialize a rust object into a valid mongo document.
+    /// Object must have `MongoDocument + Serialize` traits in order to be
+    /// considered valid
     ///
     /// Will error if attempting to insert to a collection that doesn't exist
     /// on database
     ///
+    /// ### Basic Usage
+    /// ```rust
+    /// type UID = u64;
+    /// struct Crab{
+    ///     uid: UID,
+    ///     name: String,
+    /// }
+    ///
+    /// impl MongoDocument for Crab{
+    ///     fn name(&self) -> String{
+    ///         self.name.clone()
+    ///     }
+    ///     
+    ///     fn uid(&self) -> UID{
+    ///         self.uid
+    ///     }
+    /// }
+    ///
+    /// let crab = Crab{
+    ///     uid: db::utils::gen_uid(),
+    ///     name: "Crab".to_string();
+    /// }
+    ///
+    /// let mut mongo = DatabaseHandler::new("Caller".to_string()).unwrap();
+    ///
+    /// mongo.set_db("entities").unwrap();
+    ///
+    /// let collection = mongo.get_collection("mobs").expect("Couldn't find collection");
+    ///
+    /// // serialized and inserted to MongoDB with Schema
+    /// // entities -> mobs -> crab_bson
+    /// mongo.insert_one(&crab, &collection, None).unwrap();
+    /// ```
     pub fn insert_one<T: Serialize + MongoDocument>(
         &mut self,
         object: &T,
@@ -109,6 +169,18 @@ impl DatabaseHandler {
         Ok(())
     }
 
+    /// Check to see if a particular document exists within data base
+    /// and supplied collection. Filters based on either *UID* which will __always__ be
+    /// unique, or *name* which could have multiple instances in collection.
+    ///
+    /// ```rust
+    /// let crab = Crab::new(); // valid mongo document serializable struct
+    ///
+    /// let col = mongo.get_collection("mobs").unwrap();
+    ///
+    /// assert_eq!(true, doc_exists(&crab, &col, FilterOn::UID, None))
+    /// ```
+    ///
     pub fn doc_exists<T: Serialize + MongoDocument>(
         &mut self,
         object: &T,
@@ -135,6 +207,16 @@ impl DatabaseHandler {
         }
     }
 
+    /// Attempts to get a Database Cursor to all
+    /// documents specified by Object T
+    ///
+    /// ```rust
+    /// let cursor = get_docs(&crab, &mobs_collection, FilterOn::NAME, None).unwrap();
+    ///
+    /// for result in cursor{
+    ///     assert_eq!(bson::Document, result);
+    /// }
+    /// ```
     pub fn get_docs<T: Serialize + MongoDocument>(
         &mut self,
         object: &T,
@@ -158,6 +240,13 @@ impl DatabaseHandler {
         cursor
     }
 
+    /// Attempts to return a single Document within Collection
+    ///
+    /// ```rust
+    /// let document = get_doc(&crab, &mob_collection, None).unwrap();
+    ///
+    /// assert_eq!(bson::Document, document);
+    /// ```
     pub fn get_doc<T: Serialize + MongoDocument>(
         &mut self,
         object: &T,
@@ -181,10 +270,29 @@ impl DatabaseHandler {
         document
     }
 
+    /// Updates documents in collection based on FilterOn
+    /// __Updates ALL instances__ based on `FilterOn` and `FindOptions`
     ///
-    /// Updates default to all instances specified in
-    /// filter to all documents in collection
+    /// ```rust
+    /// let crab = Crab{
+    ///     uid: db::utils::gen_uid(),
+    ///     name: "little crab",
+    /// }
     ///
+    /// let crab_doc = mongo.get_doc(&crab, &mob_collection, None, None)?;
+    /// assert_neq!(crab, db::utils::bson_to_object(crab_doc)?);
+    ///
+    /// mongo.update(
+    ///     &crab,
+    ///     &mob_collection,
+    ///     db::utils::FilterOn::UID,
+    ///     None,
+    ///     None,
+    /// )
+    ///
+    /// let crab_doc = mongo.get_doc(&crab, &mob_collection, None, None)?;
+    /// assert_eq!(crab, bson_to_object(crab_doc)?);
+    /// ```
     pub fn update<T: Serialize + MongoDocument>(
         &mut self,
         object: &T,
