@@ -1,3 +1,5 @@
+//! Definitions and declarations of data structures relating comms
+
 use crate::connstates::{AwaitingAcctName, ConnState};
 use bson::oid::ObjectId;
 use futures::SinkExt;
@@ -11,16 +13,23 @@ use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
+/// this will change, as UID needs to be u64 to sync with MongoDB consumption
 pub type UID = ObjectId;
-type Tx = mpsc::UnboundedSender<String>;
-type Rx = mpsc::UnboundedReceiver<String>;
 
+pub type Tx = mpsc::UnboundedSender<String>;
+pub type Rx = mpsc::UnboundedReceiver<String>;
+
+/// The types of message recieved
 #[derive(Debug)]
 pub enum Message {
+    /// Message recieved from connected client
     FromClient(String),
+
+    /// Message recieved from shared Rx
     OnRx(String),
 }
 
+/// struct holding client account information
 #[derive(Debug)]
 pub struct ClientAccount {
     pub name: String,
@@ -36,6 +45,8 @@ impl ClientAccount {
     }
 }
 
+/// Wrapper around connected socket, this is non-persistent data and only valid
+/// within the main `process`.
 #[derive(Debug)]
 pub struct Client {
     pub uid: UID,
@@ -83,13 +94,17 @@ impl Stream for Client {
     }
 }
 
+/// Server owned structure that holds each clients SocketAddr and Tx channel
 #[derive(Debug)]
 pub struct Comms(pub SocketAddr, pub Tx);
 
+/// Shared ownership structure between all connected clients.
 #[derive(Debug)]
 pub struct Server {
+    /// Holds information regarding connected clients
     pub clients: HashMap<UID, Comms>,
 
+    /// Holds account information for each client
     pub accounts: HashMap<UID, ClientAccount>,
 }
 

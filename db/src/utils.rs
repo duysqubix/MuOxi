@@ -1,3 +1,7 @@
+//!
+//! List of utilities and common data structures
+//!
+
 use bson::DecoderResult;
 use bson::{Bson, Document};
 use rand::Rng;
@@ -7,11 +11,17 @@ use std::time::SystemTime;
 
 pub type JsonDecoderResult<T> = Result<T, serde_json::error::Error>;
 pub type UID = u64;
+
+/// Used for filtering documents within collection
 pub enum FilterOn {
+    /// Unique 8 byte address for each MuOxi object
     UID,
+
+    /// Name of MuOxi object.
     NAME,
 }
 
+/// trait needed by objects in order to be used within MuOxi MongoDB
 pub trait MongoDocument {
     fn name(&self) -> String;
     fn uid(&self) -> UID;
@@ -33,12 +43,14 @@ pub fn gen_uid() -> UID {
     timestamp + id
 }
 
+/// Attempts to convert BSON::Document to T
 pub fn bson_to_object<'de, T: Serialize + Deserialize<'de> + MongoDocument>(
     doc: Document,
 ) -> DecoderResult<T> {
     bson::from_bson(Bson::Document(doc))
 }
 
+/// Attempts to convert serde_json::Value to T
 pub fn json_to_object<T: Serialize + DeserializeOwned>(
     val: serde_json::Value,
 ) -> JsonDecoderResult<T> {

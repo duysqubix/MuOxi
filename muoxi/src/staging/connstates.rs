@@ -1,3 +1,5 @@
+//! __This entire module will be scraped... don't use.__
+
 use machine::{machine, methods, transitions};
 
 machine! {

@@ -1,11 +1,14 @@
 //!
-//! Main Proxy Staging TCP Client communicates with the Game Engine and relays
-//! game engine response to connected clients.
+//! ## Main Proxy Staging TCP Server
+//!
+//! This is where all clients will eventually connect to either via direct connection or
+//! one of the supported proxy servers *(MCCP, Webserver, etc..)*
+//!
 //!
 
-mod comms;
-mod connstates;
-mod copyover;
+pub mod comms;
+pub mod connstates;
+pub mod copyover;
 
 use bson::oid::ObjectId;
 use comms::{Client, ClientAccount, Comms, Server, UID};
@@ -22,15 +25,31 @@ use tokio::stream::{Stream, StreamExt};
 use tokio::sync::Mutex;
 use tokio_util::codec::LinesCodecError;
 
-static GAME_ADDR: &'static str = "127.0.0.1:4567";
-static PROXY_ADDR: &'static str = "127.0.0.1:8000";
+/// Current listening port of the MuOxi game engine
+pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
 
-async fn send<'a>(client: &'a mut Client, msg: &'a str) -> Result<(), LinesCodecError> {
+/// Current listening port of the staging proxy server
+pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
+
+/// Friendly async wrapper to sending messages to client object
+///
+/// ```rust
+/// let msg = "Hello, and welcome to hell";
+/// send(&client, msg).await?;
+/// ```
+pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> Result<(), LinesCodecError> {
     client.lines.send(msg.into()).await?;
     Ok(())
 }
 
-async fn get<'a>(client: &'a mut Client) -> String {
+/// Friendly async wrapper around recieving message from client
+/// Instead of panicing on wrong error, it will return a client disconnect message
+///
+/// ```rust
+/// let client_response = get(&client).await;
+/// println!("Recieved from client: {}", client_response);
+/// ```
+pub async fn get<'a>(client: &'a mut Client) -> String {
     if let Some(Ok(v)) = client.lines.next().await {
         v
     } else {
@@ -38,7 +57,11 @@ async fn get<'a>(client: &'a mut Client) -> String {
     }
 }
 
-async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
+///
+/// Main processing piece of logic, once a connection is established to client
+/// the entire lifetime of the connected client is handled within this function.
+///
+pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     // add client to server instance
     // let uid: UID = rand::thread_rng().gen();
     let uid: UID = ObjectId::new()?;
@@ -157,17 +180,19 @@ async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Bo
     Ok(())
 }
 
+/// Turns the staging server into a full proxy server, relaying information sent
+/// to proxy/staging server to MuOxi game engine
 ///
-/// Example usage
+/// ### Example usage
 /// ```rust
-///     let proxy = transfer(inbound, GAME_ADDR.to_string().clone()).map(|r| {
+///     let _proxy = transfer(inbound, GAME_ADDR.to_string().clone()).map(|r| {
 ///        if let Err(e) = r {
 ///            println!("Failed to transfer; error={}", e);
 ///        }
 ///    });
 /// ```
 ///
-async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>> {
+pub async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>> {
     let mut outbound = TcpStream::connect(&game_addr).await?;
     let inbound_addr = inbound.peer_addr().unwrap();
     let outbound_addr = outbound.peer_addr().unwrap();
