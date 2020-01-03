@@ -19,6 +19,7 @@ sha2 = "0.8.0"
 rand = "^0.7"
 md5 = "0.7.0"
 hotwatch = "0.4.3"
+redis = "0.13.0"
 
 [[bin]]
 name = "muoxi_sandbox"
