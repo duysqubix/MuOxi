@@ -5,8 +5,8 @@
 
 use crate::utils::MongoDocument;
 use bson::oid::ObjectId;
-use muoxi_states as states;
 use serde::{Deserialize, Serialize};
+use states;
 
 type UID = u64;
 

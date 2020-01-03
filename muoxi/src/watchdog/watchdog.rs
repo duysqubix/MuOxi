@@ -1,5 +1,5 @@
+use db::{utils::json_to_object, DatabaseHandler};
 use hotwatch::{Event, Hotwatch};
-use muoxi_db::{utils::json_to_object, DatabaseHandler};
 use serde_json;
 use serde_json::Result as serdeResult;
 use std::collections::HashMap;
@@ -35,8 +35,7 @@ fn trigger_upload(file: ConfigFile) -> Result<(), Box<dyn std::error::Error>> {
             let accounts =
                 read_file("config/accounts.json").expect("Couldn't read from accounts.json");
 
-            let accounts: HashMap<u64, muoxi_db::clients::ClientDB> =
-                json_to_object(accounts).unwrap();
+            let accounts: HashMap<u64, db::clients::ClientDB> = json_to_object(accounts).unwrap();
             println!("{:?}", accounts);
         }
         ConfigFile::Players => {

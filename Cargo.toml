@@ -1,11 +1,14 @@
 [workspace]
 members = [
-    'muoxi_webserver',
-    'muoxi_staging',
-    'muoxi_engine',
-    'muoxi_db',
-    'muoxi_states',
-    'muoxi_watchdog',
+    # 'muoxi_webserver',
+    # 'muoxi_staging',
+    # 'muoxi_engine',
+    # 'muoxi_db',
+    # 'muoxi_states',
+    # 'muoxi_watchdog',
+    'muoxi',
+    'db',
+    'states',
     'tester'
 ]
 

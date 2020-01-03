@@ -1,0 +1,42 @@
+[package]
+name = "muoxi"
+version = "0.1.0"
+authors = ["duysqubix <duys@qubixat.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+db = {path = "../db"}
+pretty_env_logger = "^0.3"
+tokio = {version = "^0.2", features=["full"]}
+tokio-util = { version = "^0.2", features = ["full"] }
+futures = "^0.3"
+log = "^0.4"
+machine = "0.3.0"
+rand = "^0.7"
+bson = "0.14.0"
+serde = {version = "1.0", features = ["derive"]}
+serde_json = { version = "1.0", features = ["preserve_order"] }
+hotwatch = "0.4.3"
+mongodb = "0.9.0"
+ws = "^0.9"
+mio = "0.6.14"
+mio-extras = "2.0"
+bytes = "^0.5"
+
+[[bin]]
+name = "muoxi_engine"
+path = "src/engine/muoxi.rs"
+
+[[bin]]
+name = "muoxi_staging"
+path = "src/staging/staging_proxy.rs"
+
+[[bin]]
+name = "muoxi_watchdog"
+path = 'src/watchdog/watchdog.rs'
+
+[[bin]]
+name = "muoxi_web"
+path = "src/webserver/webserver.rs"
