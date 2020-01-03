@@ -3,16 +3,23 @@
 [![Build Status][travisimg]][travislink] 
 
 *MuOxi* is a modern library for creating [online multiplayer text
-games][wikimudpage] (MU* family) in Rust using the powerful and flexible [Amethyst][amethyst] game engine and backed by [Tokio][tokio],. 
+games][wikimudpage] (MU* family) in Rust using the powerful and flexible [Amethyst][amethyst] game engine and backed by [Tokio][tokio] and [MongoDB][mongodb],. 
 It allows developers and coders to design and flesh out their worlds in a
 fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. Join us on [discord][discord].
 
 
 ## Current Status
 
-The codebase is currently in *alpha* stage . While development continues,
-the master branch has transformed into a telnet server with most of the work
-being done on the staging/proxy server *more information on project design below*. 
+The codebase is currently in *alpha* stage . Majority of development is done on the `dev` 
+branch, with occasional PRs to the main branch. There is a working TCP server that allows
+for multiple connections and handles them accordingly. Effort is focused at the moment in 
+designing the backend database structure using a combination of MongoDB and json files.
+
+## Contributions
+
+Any contributions from the community is appreciated and wanted! No matter your skill level any sort
+of effort into this project is extremely welcomed. For those wanting to contribute, fork the `dev` branch
+and submit PR's. Any questions or information, we welcome you at our [discord][discord] server. Come on by.
 
 ## Road Map
 
@@ -27,6 +34,49 @@ The bare minimum TODO features that must be implemented before I would consider 
 * Implements a periodic message every *n* seconds
 * Implements some rudimentary admin control (eg. muting another player)
 * Basic cardinal movement
+* Implements a storage based system
+
+## Database Design Architecture
+
+The database design is seperated into three different layers, with different levels of abstraction.
+MuOxi utilizes [MongoDB][mongodb] for its storage needs. A unique design approach has been taken that allows information 
+to be kept safe from database corruption, brownouts, or blackouts. The ideology is
+as follows:
+
+```
+ Layer 1: JSON Files <---
+              |         |
+             \ /        |
+ Layer 2: MongoDB       |
+              |         |
+             \ /        |
+ Layer 3: Cache/Memory --
+```
+
+#### Layer 1: Flat Files
+
+The entire database actually lives in JSON files from accounts, mobs, players, equipment, spells, skills, etc... 
+JSON files where chosen because of its close relationship with MongoDB native storage choice, [BSON][bson]; as well
+as it's human friendly format. A seperate process called the *watchdog* monitors custom defined `.json` files in the 
+`/config` directory for any changes to contents themselves. Upon a detected change it triggers an upload piece of logic
+that *updates* [MongoDB][mongodb], which leads us to layer 2 of the design.
+
+
+#### Layer 2: MongoDB
+
+This is where all persistent data will live throughout, and past, the life-span of MuOxi. [MongoDB][mongodb] naturally
+stores data in a [BSON][bson] format, and allows all the goodies that come with any database *(indexing, search, upsert, insert, deletion)*
+The database should always be a reflection of what is stored in the flat files, when MuOxi uses data from the database, it gets loaded 
+and we move to layer 3 of the design.
+
+#### Layer 3: In-Memory
+
+This is the layer where MuOxi will actually use all persistent and non-persistent data to drive the actual engine itself. Whether it be
+handling different states of connected clients, combat data, player information, and any-and-all other memory will be read from the database
+to keep the engine running. Upon an action within MuOxi that would causes a change to the Database, MuOxi will actually write to the flat-files
+instead of directly to Mongo. This was a throughouly thought out process to keep MongoDB a read-only database, from the perspective of the engine itself.
+When a change occurs and MuOxi writes to the flat files we began again at layer 1 of the design. __It is the responsibility of the WatchDog to monitor changes to
+the json files and update MongoDB. MongoDB and the JSON files should always be a reflection of each other.__
 
 ## Core Design Architecture
 
@@ -34,7 +84,7 @@ The prototype idea of how the core design is laid out into three seperate object
 1. Staging/Proxy Server *(Clients will connect to this server and essentially communicate with the engine via this stage)*
 2. Game Engine *(all the game logic lies here and reacts to input from connected clients)*
 3. Database *(stores information about entities, objects, and game data)* 
-4. Communication Protocol Client *Each supported comm client (MCCP, telnet, websocket)* will act as a full-duplex proxy that communicates with the Staging Server
+4. Communication *( Each supported comm client (MCCP, telnet, websocket) will act as a full-duplex proxy that communicates with the Staging Server)*
 
 The idea is that players will connect via one of the supported communication protocols to the *proxy server*. In this server, clients 
 are not actually connected to the game, unless they explicity enter. The *staging area* holds all connected client information such as 
@@ -78,15 +128,18 @@ As it stands the engine has the following capabilities:
 
 The project contains two seperate bin that can both be evoked from the command line:
 
-* *(Not working as intended at the moment)* cargo run --bin muoxi_websocket
+* *(Not working as intended at the moment)* cargo run --bin muoxi_web
     * Starts the websocket server listening for incoming webclients, *default 8001*
 
 * cargo run --bin muoxi_staging
     * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
 
-* *(Not Implemented Yet)* cargo run --bin muoxi_engine
+* cargo run --bin muoxi_watchdog
+  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update MongoDB
+
+* cargo run --bin muoxi_engine
     * Starts the main game engine running in it's own seperate process. The whole game is contained
-    within a TCP listening server that exchanges information back and forth between to the Proxy Server
+    within a TCP listening server that exchanges information back and forth between to the Proxy Server. *Right now it is just an echo server*
 
 
 
@@ -115,3 +168,5 @@ that I think will make this an outstanding project.
 [amethyst]: https://amethyst.rs/
 [discord]: https://discord.gg/pMnBmGv
 [tokio]: https://github.com/tokio-rs/tokio
+[mongodb]: https://www.mongodb.com/
+[bson]: http://bsonspec.org/
