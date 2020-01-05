@@ -38,19 +38,23 @@ The bare minimum TODO features that must be implemented before I would consider 
 
 ## Database Design Architecture
 
-The database design is seperated into three different layers, with different levels of abstraction.
-MuOxi utilizes [MongoDB][mongodb] for its storage needs. A unique design approach has been taken that allows information 
+The database design is seperated into four different layers, with different levels of abstraction.
+MuOxi utilizes [MongoDB][mongodb] for its storage needs and [Redis][redis] for its caching and fast retrieval needs.
+ A unique design approach has been taken that allows information 
 to be kept safe from database corruption, brownouts, or blackouts. The ideology is
 as follows:
 
 ```
- Layer 1: JSON Files <---
-              |         |
-             \ /        |
- Layer 2: MongoDB       |
-              |         |
-             \ /        |
- Layer 3: Cache/Memory --
+ Layer 1: JSON Files <--------
+              |              |
+             \ /             |
+ Layer 2:  MongoDB           |
+              |              |
+             \ /             |
+ Layer 3: Cache/Memory       |
+              |              |
+             \ /             |
+ Layer 4: MuOxi Applications--
 ```
 
 #### Layer 1: Flat Files
@@ -69,10 +73,17 @@ stores data in a [BSON][bson] format, and allows all the goodies that come with 
 The database should always be a reflection of what is stored in the flat files, when MuOxi uses data from the database, it gets loaded 
 and we move to layer 3 of the design.
 
-#### Layer 3: In-Memory
+#### Layer 3: Cache/In-Memory
+
+This layer is dominated by [Redis][redis], for quick retrieval of information and adding ad-hoc non-persistent data such as combat,
+triggers, and other various information that would not be detrimental to the engine if the engine or database were to become corrupted 
+and/or shutdown for whatever reason. At initial startup redis will cache the entire database into it's memory where then layer 4 will read from.
+If changes occur within the MongoDB itself, redis will recache. 
+
+#### Layer 4: MuOxi Applications
 
 This is the layer where MuOxi will actually use all persistent and non-persistent data to drive the actual engine itself. Whether it be
-handling different states of connected clients, combat data, player information, and any-and-all other memory will be read from the database
+handling different states of connected clients, combat data, player information, and any-and-all other memory will be read from the cached database
 to keep the engine running. Upon an action within MuOxi that would causes a change to the Database, MuOxi will actually write to the flat-files
 instead of directly to Mongo. This was a throughouly thought out process to keep MongoDB a read-only database, from the perspective of the engine itself.
 When a change occurs and MuOxi writes to the flat files we began again at layer 1 of the design. __It is the responsibility of the WatchDog to monitor changes to
@@ -170,3 +181,4 @@ that I think will make this an outstanding project.
 [tokio]: https://github.com/tokio-rs/tokio
 [mongodb]: https://www.mongodb.com/
 [bson]: http://bsonspec.org/
+[redis]: https://redis.io/

@@ -3,7 +3,7 @@
 //! when attempting to create a handler to the database, it will panic.
 //!
 //! ### Basic Usage
-//! ```rust
+//! ```rust, ignore
 //! let mut mongo = DatabaseHandler::new("Caller".to_string()).unwrap(); // will panic if no mongodb server is running.
 //! mongo.set_db("test").unwrap(); // sets internal database
 //! ```
@@ -109,7 +109,7 @@ impl DatabaseHandler {
     /// on database
     ///
     /// ### Basic Usage
-    /// ```rust
+    /// ```rust, ignore
     /// type UID = u64;
     /// struct Crab{
     ///     uid: UID,
@@ -173,7 +173,7 @@ impl DatabaseHandler {
     /// and supplied collection. Filters based on either *UID* which will __always__ be
     /// unique, or *name* which could have multiple instances in collection.
     ///
-    /// ```rust
+    /// ```rust, ignore
     /// let crab = Crab::new(); // valid mongo document serializable struct
     ///
     /// let col = mongo.get_collection("mobs").unwrap();
@@ -210,7 +210,7 @@ impl DatabaseHandler {
     /// Attempts to get a Database Cursor to all
     /// documents specified by Object T
     ///
-    /// ```rust
+    /// ```rust, ignore
     /// let cursor = get_docs(&crab, &mobs_collection, FilterOn::NAME, None).unwrap();
     ///
     /// for result in cursor{
@@ -242,7 +242,7 @@ impl DatabaseHandler {
 
     /// Attempts to return a single Document within Collection
     ///
-    /// ```rust
+    /// ```rust, ignore
     /// let document = get_doc(&crab, &mob_collection, None).unwrap();
     ///
     /// assert_eq!(bson::Document, document);
@@ -273,7 +273,7 @@ impl DatabaseHandler {
     /// Updates documents in collection based on FilterOn
     /// __Updates ALL instances__ based on `FilterOn` and `FindOptions`
     ///
-    /// ```rust
+    /// ```rust, ignore
     /// let crab = Crab{
     ///     uid: db::utils::gen_uid(),
     ///     name: "little crab",
