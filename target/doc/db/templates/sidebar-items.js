@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Character","This WILL change, as this struct is just for testing purposes. Character struct holding information about a mob ingame"],["ClientDB","Struct that holds information about connected clients"]],"type":[["UID",""]]});

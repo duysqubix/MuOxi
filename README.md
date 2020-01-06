@@ -1,26 +1,26 @@
 # ![muoxi_logo][logo] 
 # MuOxi MUD/MU* Rustic Game Engine v0.1.0
-[![Build Status][travisimg]][travislink] [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![codecov](https://codecov.io/gh/duysqubix/MuOxi/branch/master/graph/badge.svg)](https://codecov.io/gh/duysqubix/MuOxi)
+[![Build Status][travisimg]][travislink] [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) 
 
 
 
 *MuOxi* is a modern library for creating [online multiplayer text
-games][wikimudpage] (MU* family) in Rust using the powerful and flexible [Amethyst][amethyst] game engine and backed by [Tokio][tokio] and [MongoDB][mongodb],. 
+games][wikimudpage] (MU* family) using the powerful features offered by Rust; backed by [Tokio][tokio] and [MongoDB][mongodb],. 
 It allows developers and coders to design and flesh out their worlds in a
-fast, safe, and reliable language. MuOxi engine is made available under *GPL3*. Join us on [discord][discord].
+fast, safe, and reliable language. Join us on [discord][discord].
 
 
 ## Current Status
 
-The codebase is currently in *alpha* stage . Majority of development is done on the `dev` 
-branch, with occasional PRs to the main branch. There is a working TCP server that allows
+The codebase is currently in *alpha* stage . Majority of development is done on the `master` 
+branch. There is a working TCP server that allows
 for multiple connections and handles them accordingly. Effort is focused at the moment in 
 designing the backend database structure using a combination of MongoDB and json files.
 
 ## Contributions
 
 Any contributions from the community is appreciated and wanted! No matter your skill level any sort
-of effort into this project is extremely welcomed. For those wanting to contribute, fork the `dev` branch
+of effort into this project is extremely welcomed. For those wanting to contribute, fork the `master` branch
 and submit PR's. Any questions or information, we welcome you at our [discord][discord] server. Come on by.
 
 ## Road Map

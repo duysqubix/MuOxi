@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Character","Character struct holding information about a mob ingame"],["ClientDB","Struct that holds information about connected client"]]});
