@@ -1,6 +1,8 @@
 # ![muoxi_logo][logo] 
 # MuOxi MUD/MU* Rustic Game Engine v0.1.0
-[![Build Status][travisimg]][travislink] 
+[![Build Status][travisimg]][travislink] [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![codecov](https://codecov.io/gh/duysqubix/MuOxi/branch/master/graph/badge.svg)](https://codecov.io/gh/duysqubix/MuOxi)
+
+
 
 *MuOxi* is a modern library for creating [online multiplayer text
 games][wikimudpage] (MU* family) in Rust using the powerful and flexible [Amethyst][amethyst] game engine and backed by [Tokio][tokio] and [MongoDB][mongodb],. 

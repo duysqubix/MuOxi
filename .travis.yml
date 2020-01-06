@@ -1,12 +1,46 @@
 language: rust
+
+sudo: required
+
+rust: 
+  - stable
+  - beta
+  - nightly
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+      - gcc
+      - binutils-dev
+      - libiberty-dev
+
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
   cargo doc &&
-  echo "<meta http-equiv=refresh content=0;url=`echo $TRAVIS_REPO_SLUG | cut -d '/' -f 2`/index.html>" > target/doc/muoxi_engine/index.html &&
+  echo "<meta http-equiv=refresh content=0;url=`echo $TRAVIS_REPO_SLUG | cut -d '/' -f 2`/index.html>" > target/doc/index.html &&
   sudo pip install ghp-import &&
   ghp-import -n target/doc &&
   git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+
+  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+  tar xzf master.tar.gz &&
+  cd kcov-master &&
+  mkdir build &&
+  cd build &&
+  cmake .. &&
+  make &&
+  make install DESTDIR=../../kcov-build &&
+  cd ../.. &&
+  rm -rf kcov-master &&
+  for file in target/debug/examplerust-*; do [ -x "${file}" ] || continue; mkdir -p "target/cov/$(basename $file)"; ./kcov-build/usr/local/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
+  bash <(curl -s https://codecov.io/bash) &&
+  echo "Uploaded code coverage"
+
 env:
   global:
     secure: MNwmxz8JKqjm93njqZRRjOYlYNo0cJa34aQAaCfVw2qCjUcUoWtVZ+lr/pxd12FHhuz+zY6HkuOsk+ZrlRPNzFA+VgbzAfg2B/sSAjSAcKZcv9cPFWMXyTU8RD8imAw7G9aL1Qp7H7an8YPT9+mp+yvHaPvqchzWONv8FrXXidPGDsY4ozdA/Xz5l60kdnoRwsKMf5OGaIO0IK6Eb/a5tLfmFdmLVFfvxmI7hpIkv3nEjQ6HLhblKlry8vk15L9twP10VmxjqusUQ5mpGZEjzp+NyDrSpMPFnBSvlFnsgUa3aCjo5EC4UKWxnd19VKGebbU5WzxdAejAekmLiThVx6W1d+JW/eSlEpQUG+7Oj5h7fdHwBApWm/7BKrHP+9mzdfBpZ8AXtdtKqRmcRkDOuUhHE7oTi/fYmxoEzrqPIOFt1YtqXRYkPcHrmrDcmsf0RHKhqxYNv9hU9k1fUWuPdvdrM6E6YEB+nkcCJm6Asvv5v3VtFJkYeRVTG3iK/QwASXUVX1Fn+x1L8lzerGnDti1mxHZOJrrWezvqKuoL3mtDoRb6kUJ6+vcV3e+HlZT+7iJz/aC3ihJJGwVTu3Bg2aglc93UD0/ApxEm9TuqPtXXrvzJgXsdmYTGtD/Pp0jve2p7vGoyp/g2HHz7ZY5PwjYgbafjwVxs94NaVnMCQrI=
