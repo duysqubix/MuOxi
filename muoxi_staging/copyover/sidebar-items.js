@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["copy",""]],"struct":[["CopyOver","Asynchronously copies the entire contents of a reader into a writer."]]});

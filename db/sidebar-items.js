@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["templates","Defines the different structures that are serializable to MongoDB All structures that will have a place in MongoDB need to be defined here."],["utils","List of utilities and common data structures"]],"struct":[["DatabaseHandler","Wrapper to MongoDB running in background"]]});
