@@ -7,7 +7,7 @@
 *MuOxi* is a modern library for creating [online multiplayer text
 games][wikimudpage] (MU* family) using the powerful features offered by Rust; backed by [Tokio][tokio] and [MongoDB][mongodb],. 
 It allows developers and coders to design and flesh out their worlds in a
-fast, safe, and reliable language. Join us on [discord][discord].
+fast, safe, and reliable language. Explore MuOxi API the *[rustacean][gh-pages-site]* way Join us on [discord][discord].
 
 
 ## Current Status
@@ -184,3 +184,4 @@ that I think will make this an outstanding project.
 [mongodb]: https://www.mongodb.com/
 [bson]: http://bsonspec.org/
 [redis]: https://redis.io/
+[gh-pages-site]: https://duysqubix.github.io/MuOxi/
