@@ -54,12 +54,18 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
     // set db depending on file
     match file {
         JsonFile::Accounts => {
-            mongo.set_db("accounts").unwrap();
+            mongo.set_db("accounts")?;
+            // mongo.drop_collection("accounts", None)?;
+
             let accounts =
                 read_file("config/accounts.json").expect("Couldn't read from accounts.json");
 
             let accounts: HashMap<u64, db::templates::ClientDB> = json_to_object(accounts).unwrap();
-            println!("{:?}", accounts);
+            let account_collection = mongo.get_collection("accounts")?;
+
+            for (_uid, account) in accounts.iter() {
+                mongo.insert_one(account, &account_collection, None, true)?;
+            }
         }
         JsonFile::Players => {
             mongo.set_db("players").unwrap()
@@ -75,24 +81,26 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let mut watcher = Hotwatch::new_with_custom_delay(Duration::from_millis(100))?;
+    // write all initial
 
-    // watcher.watch("config/people.json", move |event| {
-    //     if let Event::Write(_path) = event {
-    //         trigger_upload(JsonFile::Players).unwrap();
-    //     }
-    // })?;
+    let mut watcher = Hotwatch::new_with_custom_delay(Duration::from_millis(100))?;
 
-    // watcher.watch(ACCOUNTS, move |event| {
-    //     if let Event::Write(_path) = event {
-    //         trigger_upload(JsonFile::Accounts).unwrap();
-    //     }
-    // })?;
+    watcher.watch("config/people.json", move |event| {
+        if let Event::Write(_path) = event {
+            trigger_upload(JsonFile::Players).unwrap();
+        }
+    })?;
 
-    // println!("Watchdog runing...");
-    // let t = thread::spawn(|| {});
-    // t.join().unwrap();
+    watcher.watch(ACCOUNTS, move |event| {
+        if let Event::Write(_path) = event {
+            trigger_upload(JsonFile::Accounts).unwrap();
+        }
+    })?;
 
-    trigger_upload(JsonFile::Accounts).unwrap();
+    println!("Watchdog runing...");
+    let t = thread::spawn(|| loop {});
+    t.join().unwrap();
+
+    // trigger_upload(JsonFile::Accounts).unwrap();
     Ok(())
 }

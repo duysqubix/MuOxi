@@ -1,18 +1,12 @@
 {
     "2767763803": {
         "uid": 2767763803.0,
-        "name": "Duan",
-        "ip": "192.168.1.5",
-        "port": 5756,
-        "state": "AwaitingName",
-        "ncharacters": 0
+        "ip": "192.167.1d.6",
+        "port": 5756
     },
     "2767763804": {
         "uid": 2767763804.0,
-        "name": "Tavis",
         "ip": "192.168.1.4",
-        "port": 5555,
-        "state": "AwaitingName",
-        "ncharacters": 0
+        "port": 5555
     }
 }
