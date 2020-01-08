@@ -18,11 +18,24 @@
 <span id="18">18</span>
 <span id="19">19</span>
 <span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">rand</span>::<span class="ident">Rng</span>;
+<span class="kw">use</span> <span class="ident">serde</span>::<span class="ident">de</span>::<span class="ident">DeserializeOwned</span>;
+<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">SystemTime</span>;
 
 <span class="kw">pub</span> <span class="kw">type</span> <span class="ident">UID</span> <span class="op">=</span> <span class="ident">i64</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">JsonDecoderResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">serde_json</span>::<span class="ident">error</span>::<span class="ident">Error</span><span class="op">&gt;</span>;
 
 <span class="doccomment">///</span>
 <span class="doccomment">/// Creates a unique 8 byte address first 4 bytes is timestamp</span>
@@ -38,6 +51,13 @@
     <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">rand</span>::<span class="ident">thread_rng</span>().<span class="ident">gen_range</span>(<span class="number">0</span>, <span class="number">0xFF_FF_FF_FF</span> <span class="kw">as</span> <span class="ident">i64</span>);
 
     ((<span class="ident">timestamp</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="number">32</span>) <span class="op">|</span> <span class="ident">id</span>) <span class="kw">as</span> <span class="ident">UID</span>
+}
+
+<span class="doccomment">/// Attempts to convert serde_json::Value to T</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">json_to_object</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span><span class="op">&gt;</span>(
+    <span class="ident">val</span>: <span class="ident">serde_json</span>::<span class="ident">Value</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">JsonDecoderResult</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="ident">serde_json</span>::<span class="ident">from_value</span>(<span class="ident">val</span>)
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "db";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

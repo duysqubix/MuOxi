@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ClientFilterOn",""]],"struct":[["Client",""],["ClientHandler",""],["FilterCriteria",""]]});
+initSidebarItems({"struct":[["Client",""],["ClientHandler",""],["ClientHashMap",""],["ClientVector",""]]});
