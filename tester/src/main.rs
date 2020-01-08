@@ -33,7 +33,7 @@ fn fetch_an_hmap() -> redis::RedisResult<HashMap<String, String>> {
 fn main() -> Result<(), Box<dyn Error>> {
     //************************** PostgreSQL/Desiel*****************
 
-    let mut db = db::DatabaseHandler::connect();
+    let db = db::DatabaseHandler::connect();
     let new_client = db::clients::Client {
         uid: 124,
         ip: "192.168.0.1".to_string(),

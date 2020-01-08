@@ -8,6 +8,7 @@ use diesel::expression_methods::TextExpressionMethods;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use std::default::Default;
+use std::fmt::Debug;
 use std::string::ToString;
 
 #[derive(Queryable, Insertable, Debug, AsChangeset, Clone)]
@@ -38,6 +39,31 @@ impl ClientFilterOn {
         }
     }
 
+    fn delete<'a>(&self, conn: &PgConnection, criteria: &'a str) -> QueryResult<usize> {
+        use clients::dsl;
+
+        match self {
+            ClientFilterOn::UID(uid) => {
+                let criteria = criteria.parse::<i64>().unwrap_or_else(|e| {
+                    println!("{:?}", e);
+                    0
+                });
+                diesel::delete(dsl::clients.filter(uid.eq(criteria))).execute(conn)
+            }
+            ClientFilterOn::IP(ip) => {
+                let str_pattern = format!("{}", criteria);
+                diesel::delete(dsl::clients.filter(ip.like(str_pattern))).execute(conn)
+            }
+            ClientFilterOn::Port(port) => {
+                let criteria = criteria.parse::<i16>().unwrap_or_else(|e| {
+                    println!("{:?}", e);
+                    0
+                });
+                diesel::delete(dsl::clients.filter(port.eq(criteria))).execute(conn)
+            }
+            ClientFilterOn::NULL => Ok(0),
+        }
+    }
     fn get<'a>(
         &self,
         conn: &PgConnection,
@@ -91,18 +117,24 @@ impl ClientHandler {
             .get_result(conn)
     }
 
-    pub fn get<'a, T: ToString + std::fmt::Debug>(
+    pub fn delete<'a, T: ToString + Debug>(
+        &self,
+        conn: &PgConnection,
+        client: Client,
+        filter_criteria: FilterCriteria<T>,
+    ) -> QueryResult<usize> {
+        let FilterCriteria(on, criteria, _) = filter_criteria;
+
+        ClientFilterOn::new(on).delete(conn, criteria.to_string().as_str())
+    }
+
+    pub fn get<'a, T: ToString + Debug>(
         &self,
         conn: &PgConnection,
         filter_criteria: FilterCriteria<T>,
     ) -> QueryResult<Vec<Client>> {
         let FilterCriteria(on, criteria, limit) = filter_criteria;
-        println!(
-            "on: {}, critieria: {}, limit: {}",
-            &on,
-            &criteria.to_string().as_str(),
-            limit
-        );
+
         ClientFilterOn::new(on).get(conn, criteria.to_string().as_str(), limit)
     }
 }

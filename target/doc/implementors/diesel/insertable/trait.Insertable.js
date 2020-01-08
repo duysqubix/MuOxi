@@ -1,0 +1,9 @@
+(function() {var implementors = {};
+implementors["db"] = [{text:"impl&lt;'insert&gt; Insertable&lt;<a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a>&gt; for <a class=\"struct\" href=\"db/clients/struct.Client.html\" title=\"struct db::clients::Client\">Client</a>",synthetic:false,types:["db::clients::Client"]},{text:"impl&lt;'insert&gt; Insertable&lt;<a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a>&gt; for &amp;'insert <a class=\"struct\" href=\"db/clients/struct.Client.html\" title=\"struct db::clients::Client\">Client</a>",synthetic:false,types:["db::clients::Client"]},{text:"impl&lt;T&gt; Insertable&lt;T&gt; for <a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a> <span class=\"where fmt-newline\">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&lt;<a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a> as AsQuery&gt;::Query: Insertable&lt;T&gt;,&nbsp;</span>",synthetic:false,types:["db::schema::clients::table"]},{text:"impl&lt;'a, T&gt; Insertable&lt;T&gt; for &amp;'a <a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a> <span class=\"where fmt-newline\">where<br>&nbsp;&nbsp;&nbsp;&nbsp;<a class=\"struct\" href=\"db/schema/clients/struct.table.html\" title=\"struct db::schema::clients::table\">table</a>: Insertable&lt;T&gt;,&nbsp;</span>",synthetic:false,types:["db::schema::clients::table"]},];
+
+            if (window.register_implementors) {
+                window.register_implementors(implementors);
+            } else {
+                window.pending_implementors = implementors;
+            }
+        })()
