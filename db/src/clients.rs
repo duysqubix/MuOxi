@@ -4,103 +4,28 @@
 //! descriptors.
 //!
 use super::schema::clients;
+use crate::utils::UID;
 use diesel::expression_methods::TextExpressionMethods;
+use diesel::pg::upsert::excluded;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use std::default::Default;
-use std::fmt::Debug;
-use std::string::ToString;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::convert::From;
 
-#[derive(Queryable, Insertable, Debug, AsChangeset, Clone)]
+#[derive(Queryable, Insertable, Debug, AsChangeset, Clone, Serialize, Deserialize)]
 pub struct Client {
     pub uid: i64,
     pub ip: String,
     pub port: i16,
 }
 
-#[derive(Debug)]
-pub struct FilterCriteria<'a, T: ToString>(pub &'a str, pub T, pub i64);
+pub struct ClientHashMap(pub HashMap<UID, Client>);
+pub struct ClientVector(pub Vec<Client>);
 
-#[derive(Debug)]
-pub enum ClientFilterOn {
-    UID(clients::dsl::uid),
-    IP(clients::dsl::ip),
-    Port(clients::dsl::port),
-    NULL,
-}
-
-impl ClientFilterOn {
-    pub fn new<'a>(field: &'a str) -> Self {
-        match field.to_lowercase().as_str() {
-            "uid" => Self::UID(clients::dsl::uid),
-            "ip" => Self::IP(clients::dsl::ip),
-            "port" => Self::Port(clients::dsl::port),
-            _ => Self::NULL,
-        }
-    }
-
-    fn delete<'a>(&self, conn: &PgConnection, criteria: &'a str) -> QueryResult<usize> {
-        use clients::dsl;
-
-        match self {
-            ClientFilterOn::UID(uid) => {
-                let criteria = criteria.parse::<i64>().unwrap_or_else(|e| {
-                    println!("{:?}", e);
-                    0
-                });
-                diesel::delete(dsl::clients.filter(uid.eq(criteria))).execute(conn)
-            }
-            ClientFilterOn::IP(ip) => {
-                let str_pattern = format!("{}", criteria);
-                diesel::delete(dsl::clients.filter(ip.like(str_pattern))).execute(conn)
-            }
-            ClientFilterOn::Port(port) => {
-                let criteria = criteria.parse::<i16>().unwrap_or_else(|e| {
-                    println!("{:?}", e);
-                    0
-                });
-                diesel::delete(dsl::clients.filter(port.eq(criteria))).execute(conn)
-            }
-            ClientFilterOn::NULL => Ok(0),
-        }
-    }
-    fn get<'a>(
-        &self,
-        conn: &PgConnection,
-        criteria: &'a str,
-        limit: i64,
-    ) -> QueryResult<Vec<Client>> {
-        match self {
-            ClientFilterOn::UID(uid) => {
-                let criteria = criteria.parse::<i64>().unwrap_or_else(|e| {
-                    println!("{:?}", e);
-                    0
-                });
-                clients::dsl::clients
-                    .filter(uid.eq(criteria))
-                    .limit(limit)
-                    .load::<Client>(conn)
-            }
-            ClientFilterOn::IP(ip) => {
-                let str_pattern = format!("{}", criteria);
-                clients::dsl::clients
-                    .filter(ip.like(str_pattern))
-                    .limit(limit)
-                    .load::<Client>(conn)
-            }
-            ClientFilterOn::Port(port) => {
-                let criteria = criteria.parse::<i16>().unwrap_or_else(|e| {
-                    println!("{:?}", e);
-                    0
-                });
-
-                clients::dsl::clients
-                    .filter(port.eq(criteria))
-                    .limit(limit)
-                    .load::<Client>(conn)
-            }
-            ClientFilterOn::NULL => clients::dsl::clients.limit(limit).load::<Client>(conn),
-        }
+impl From<ClientHashMap> for ClientVector {
+    fn from(hmap: ClientHashMap) -> Self {
+        ClientVector(hmap.0.iter().map(|(_, c)| c.clone()).collect())
     }
 }
 
@@ -108,33 +33,124 @@ pub struct ClientHandler;
 impl ClientHandler {
     /// Attempts to insert a new client with UID, if there is a conflic,
     /// it will update the record.
-    pub fn upsert(&self, conn: &PgConnection, new_client: Client) -> QueryResult<Client> {
+    pub fn upsert(&self, conn: &PgConnection, new_client: &Client) -> QueryResult<Client> {
         diesel::insert_into(clients::table)
-            .values(&new_client)
+            .values(new_client)
             .on_conflict(clients::uid)
             .do_update()
-            .set(&new_client)
+            .set(new_client)
             .get_result(conn)
     }
 
-    pub fn delete<'a, T: ToString + Debug>(
-        &self,
-        conn: &PgConnection,
-        client: Client,
-        filter_criteria: FilterCriteria<T>,
-    ) -> QueryResult<usize> {
-        let FilterCriteria(on, criteria, _) = filter_criteria;
-
-        ClientFilterOn::new(on).delete(conn, criteria.to_string().as_str())
+    /// Attempts to insert a new client with UID, if there is a conflic,
+    /// it will update the record. Doesn't work quite as expected.. Followed the
+    /// guides from [here] (https://stackoverflow.com/questions/47626047/execute-an-insert-or-update-using-diesel)
+    /// but doesn't seem to actually `set` the excluded value where the conflict happened..
+    pub fn upsert_batch(&self, conn: &PgConnection, clients: ClientVector) -> QueryResult<()> {
+        diesel::insert_into(clients::table)
+            .values(&clients.0)
+            .on_conflict(clients::uid)
+            .do_update()
+            .set(clients::uid.eq(excluded(clients::uid)))
+            .execute(conn)?;
+        Ok(())
     }
 
-    pub fn get<'a, T: ToString + Debug>(
+    /// Permanently remove record from table, by UID
+    pub fn remove_uid(&self, conn: &PgConnection, id: UID) -> QueryResult<usize> {
+        use self::clients::dsl;
+
+        diesel::delete(dsl::clients.filter(dsl::uid.eq(id))).execute(conn)
+    }
+
+    /// Remove a list of UIDS from db by suppling a vec of UIDs
+    /// *careful* if supplied vector is empty, it will remove all records in table
+    pub fn remove_uids(&self, conn: &PgConnection, uids: Vec<UID>) -> QueryResult<usize> {
+        use self::clients::dsl;
+
+        let mut deleted = 0;
+
+        if uids.len() == 0 {
+            return diesel::delete(dsl::clients).execute(conn);
+        }
+
+        for uid in uids.iter() {
+            deleted += diesel::delete(dsl::clients.filter(dsl::uid.eq(uid))).execute(conn)?;
+        }
+        Ok(deleted)
+    }
+
+    /// Get single UID from db
+    pub fn get_uid(&self, conn: &PgConnection, id: UID) -> QueryResult<Vec<Client>> {
+        use self::clients::dsl;
+
+        dsl::clients.filter(dsl::uid.eq(id)).load::<Client>(conn)
+    }
+
+    /// Retrieve a list of UIDS from db by suppling a vec of UIDs
+    /// if an empty set of uids is supplied, it will retrieve all records in table
+    pub fn get_uids(&self, conn: &PgConnection, uids: Vec<UID>) -> QueryResult<Vec<Client>> {
+        use self::clients::dsl;
+
+        let mut results: Vec<Client> = Vec::new();
+
+        if uids.len() == 0 {
+            return dsl::clients.load::<Client>(conn);
+        }
+
+        for uid in uids.iter() {
+            let record = dsl::clients.filter(dsl::uid.eq(uid)).load::<Client>(conn)?;
+
+            if let Some(client) = record.first() {
+                results.push(client.clone());
+            } else {
+                println!("Couldn't find record with uid: `{}`", uid);
+            }
+        }
+        Ok(results)
+    }
+
+    /// Get a range of UIDs
+    /// Note that UIDS that do not exists will be logged, but will not
+    /// show up in the returned vector
+    pub fn get_uids_range(
         &self,
         conn: &PgConnection,
-        filter_criteria: FilterCriteria<T>,
+        from: UID,
+        to: UID,
     ) -> QueryResult<Vec<Client>> {
-        let FilterCriteria(on, criteria, limit) = filter_criteria;
+        let uid_range: Vec<UID> = (from..to).collect();
+        self.get_uids(conn, uid_range)
+    }
 
-        ClientFilterOn::new(on).get(conn, criteria.to_string().as_str(), limit)
+    /// retrieve records with exact IP address
+    pub fn get_ip_exact<'a>(&self, conn: &PgConnection, ip: &'a str) -> QueryResult<Vec<Client>> {
+        use self::clients::dsl;
+
+        dsl::clients
+            .filter(dsl::ip.eq(ip.to_string()))
+            .load::<Client>(conn)
+    }
+
+    /// retrieve a vector of ip address with the appropriate
+    /// match pattern provided
+    ///
+    /// ```rust, ignore
+    /// let pattern = format!("%{}%", "168.0");
+    ///
+    /// // vector of Clients objects with ips matching `*168.0*`
+    /// let results = ClientHandler::get_ip_like(&conn, pattern);
+    ///
+    /// ```
+    pub fn get_ip_like<'a>(
+        &self,
+        conn: &PgConnection,
+        pattern_match: String,
+    ) -> QueryResult<Vec<Client>> {
+        use self::clients::dsl;
+
+        dsl::clients
+            .filter(dsl::ip.like(pattern_match))
+            .load::<Client>(conn)
     }
 }

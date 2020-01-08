@@ -179,7 +179,7 @@ that I think will make this an outstanding project.
 [travislink]: https://travis-ci.org/duysqubix/MuOxi
 [wikimudpage]: http://en.wikipedia.org/wiki/MUD
 [amethyst]: https://amethyst.rs/
-[discord]: https://discord.gg/pMnBmGv
+[discord]: https://discord.gg/H6Sh3CJ
 [tokio]: https://github.com/tokio-rs/tokio
 [mongodb]: https://www.mongodb.com/
 [bson]: http://bsonspec.org/

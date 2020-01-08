@@ -1,8 +1,8 @@
 //! Definitions and declarations of data structures relating comms
 
-use crate::connstates::{AwaitingAcctName, ConnState};
-use bson::oid::ObjectId;
+use db::utils::UID;
 use futures::SinkExt;
+use states::ConnStates;
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -12,9 +12,6 @@ use tokio::net::TcpStream;
 use tokio::stream::{Stream, StreamExt};
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
-
-/// this will change, as UID needs to be u64 to sync with MongoDB consumption
-pub type UID = ObjectId;
 
 pub type Tx = mpsc::UnboundedSender<String>;
 pub type Rx = mpsc::UnboundedReceiver<String>;
@@ -50,7 +47,7 @@ impl ClientAccount {
 #[derive(Debug)]
 pub struct Client {
     pub uid: UID,
-    pub state: ConnState,
+    pub state: ConnStates,
     pub lines: Framed<TcpStream, LinesCodec>,
     pub addr: SocketAddr,
     rx: Rx,
@@ -68,7 +65,7 @@ impl Client {
         server.lock().await.clients.insert(uid.clone(), comms);
         Ok(Self {
             uid: uid,
-            state: ConnState::AwaitingAcctName(AwaitingAcctName::new()),
+            state: ConnStates::AwaitingName,
             lines: Framed::new(stream, LinesCodec::new()),
             addr: addr,
             rx: rx,

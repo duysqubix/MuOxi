@@ -5,7 +5,6 @@
 
 #[macro_use]
 extern crate diesel;
-extern crate dotenv;
 
 pub mod clients;
 pub mod schema;
@@ -15,6 +14,8 @@ pub mod utils;
 use clients::Client;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::env;
 use utils::UID;
 
@@ -37,21 +38,6 @@ impl DatabaseHandler {
         Self {
             handle: conn,
             clients: clients::ClientHandler {},
-        }
-    }
-
-    pub fn show_clients(&self, limit: i64) {
-        use schema::clients::dsl::*;
-
-        let results = clients
-            .filter(ip.like(format!("%{}%", 168)))
-            .limit(limit)
-            .load::<Client>(&self.handle)
-            .expect("Error loading client data");
-
-        for client in results {
-            println!("ID: {}", client.uid);
-            println!("SocketInfo: {}:{}\n", client.ip, client.port);
         }
     }
 }

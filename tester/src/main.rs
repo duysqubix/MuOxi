@@ -1,3 +1,4 @@
+#![allow(unused_imports, dead_code)]
 use db;
 use redis::{Commands, PipelineCommands};
 use serde::{Deserialize, Serialize};
@@ -40,13 +41,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         port: 8002,
     };
 
-    let result = db.clients.upsert(&db.handle, new_client.clone()).unwrap();
-    println!("{:?}", result);
-    let filter_criteria = db::clients::FilterCriteria("uid", 124, 5);
-    let records = db.clients.get(&db.handle, filter_criteria);
+    let result = db.clients.upsert(&db.handle, &new_client).unwrap();
+    // println!("{:?}", result);
+    let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
+    println!("Deleted {} record", num_deleted.unwrap());
+    let records = db.clients.get_uids(&db.handle, vec![]);
     for record in records {
         println!("{:?}", record);
     }
+
     // ******************* Redis Read/Write *********************
     // let client = redis::Client::open("redis://127.0.0.1")?;
     // let mut con = client.get_connection()?;
