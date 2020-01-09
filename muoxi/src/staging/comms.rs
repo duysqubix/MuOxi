@@ -1,15 +1,14 @@
 //! Definitions and declarations of data structures relating comms
 
 use db::utils::UID;
-use futures::SinkExt;
 use states::ConnStates;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::net::TcpStream;
-use tokio::stream::{Stream, StreamExt};
+use tokio::stream::Stream;
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
@@ -114,7 +113,7 @@ impl Server {
     }
 
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
-        for (uid, comms) in self.clients.iter_mut() {
+        for (_uid, comms) in self.clients.iter_mut() {
             if comms.0 != sender {
                 let _ = comms.1.send(message.into());
             } else {

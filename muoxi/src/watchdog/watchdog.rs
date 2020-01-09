@@ -14,7 +14,7 @@
 //! })?;
 //! ```
 
-use db::clients::{Client, ClientHashMap, ClientVector};
+use db::clients::Client;
 use db::utils::{json_to_object, UID};
 use db::DatabaseHandler;
 use hotwatch::{Event, Hotwatch};

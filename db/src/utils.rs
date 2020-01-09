@@ -1,6 +1,6 @@
 use rand::Rng;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::SystemTime;
 
 pub type UID = i64;

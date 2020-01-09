@@ -1,4 +1,4 @@
-#![allow(unused_imports, dead_code)]
+#![allow(unused_imports, dead_code, unused_variables)]
 use db;
 use redis::{Commands, PipelineCommands};
 use serde::{Deserialize, Serialize};

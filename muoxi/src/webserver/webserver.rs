@@ -2,19 +2,17 @@
 //! Handles all things related to WebSocketServer
 //! Like finding a specific connectd sender etc..
 
-use bytes::BytesMut;
 use mio::Token;
 use pretty_env_logger;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::io::prelude::*;
-use std::io::prelude::*;
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use ws::listen;
-use ws::{CloseCode, Error, ErrorKind, Handler, Message, Request, Response, Sender};
+use ws::{CloseCode, Handler, Message, Request, Response, Sender};
 
 type IpAddr = String;
 
@@ -176,7 +174,7 @@ fn main() {
         move || listen("127.0.0.1:8080", |out| WebSocketServer::new(out, c.clone())).unwrap()
     });
 
-    let tcp_proxy = thread::spawn(move || {
+    let _tcp_proxy = thread::spawn(move || {
         // connect to an existing tcp server and forward input from websocket to this channel.
         let addr = "127.0.0.1:8000";
         let stream = TcpStream::connect(&addr).unwrap();

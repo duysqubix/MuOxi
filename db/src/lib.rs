@@ -11,13 +11,8 @@ pub mod schema;
 pub mod templates;
 pub mod utils;
 
-use clients::Client;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::env;
-use utils::UID;
 
 /// Main database handler struct
 pub struct DatabaseHandler {

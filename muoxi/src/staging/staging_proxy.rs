@@ -10,17 +10,15 @@ pub mod comms;
 pub mod copyover;
 
 use comms::{Client, ClientAccount, Comms, Server};
-use db::utils::{gen_uid, UID};
+use db::utils::gen_uid;
 use futures::future::try_join;
-use futures::Future;
 use futures::SinkExt;
-use rand::prelude::*;
 use states::ConnStates;
 use std::error::Error;
 use std::sync::Arc;
 use std::{env, str};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::stream::{Stream, StreamExt};
+use tokio::stream::StreamExt;
 use tokio::sync::Mutex;
 use tokio_util::codec::LinesCodecError;
 
