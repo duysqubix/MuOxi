@@ -72,10 +72,6 @@ that *updates* [postgreSQL][postgresql] database using [Diesel][diesel], which l
 
 #### Layer 2: PostgreSQL
 
-This is where all persistent data will live throughout, and past, the life-span of MuOxi. [MongoDB][mongodb] naturally
-stores data in a [BSON][bson] format, and allows all the goodies that come with any database *(indexing, search, upsert, insert, deletion)*
-The database should always be a reflection of what is stored in the flat files, when MuOxi uses data from the database, it gets loaded 
-and we move to layer 3 of the design.
 This is where all persistent data will live throughout, and past, the life-span of MuOxi. Powered by an ORM management system, [Diesel][diesel] with
 [postgreSQL][postgresql] backend. The database should always be a reflection of what is stored in the `.json` files. MuOxi applications 
 queries straight from the database. 
