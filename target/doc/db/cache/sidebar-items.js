@@ -1,0 +1,1 @@
+initSidebarItems({"static":[["REDIS_SERVER","default address for redis server"]],"struct":[["Cache","main wrapper around redis::Connection"]]});
