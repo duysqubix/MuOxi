@@ -1,6 +1,6 @@
 //! WatchDog that monitors the custom defined `.json` files located within `config/` directory
 //! Runs as a completely seperate process apart from all servers. Watchdogs main job is to
-//! notice contents changes of file and sync them with MongoDB
+//! notice contents changes of file and sync them with Database
 //!
 //! ## Basic usage to watch a file
 //! ```rust
@@ -14,18 +14,18 @@
 //! })?;
 //! ```
 
-use db::{utils::json_to_object, DatabaseHandler};
+use db::clients::Client;
+use db::utils::{json_to_object, UID};
+use db::DatabaseHandler;
 use hotwatch::{Event, Hotwatch};
 use serde_json;
-use serde_json::Result as serdeResult;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::thread;
 use std::time::Duration;
-// use serde::{Serialize, Deserialize};
 
-pub static ACCOUNTS: &'static str = "config/accounts.json";
+pub static CLIENTS: &'static str = "config/clients.json";
 
 /// Different `.json` storage files that need to be monitored
 #[derive(Debug, Clone)]
@@ -36,6 +36,9 @@ pub enum JsonFile {
 
     /// holds all character information
     Players,
+
+    /// holds raw socket representation of connected clients
+    Clients,
 }
 
 /// simple wrapper to read from json file and return serde_json::Value
@@ -48,51 +51,60 @@ pub fn read_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value> {
 
 /// main function that triggers upload protocols for each change in file based on `JsonFile`
 pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> {
-    let caller = format!("WatchDog: {:?}", file);
-    let mut mongo = DatabaseHandler::new(caller)?;
+    let db = DatabaseHandler::connect();
 
     // set db depending on file
     match file {
-        JsonFile::Accounts => {
-            mongo.set_db("accounts").unwrap();
-            let accounts =
-                read_file("config/accounts.json").expect("Couldn't read from accounts.json");
+        JsonFile::Clients => {
+            let clients =
+                read_file("config/clients.json").expect("Couldn't read from accounts.json");
 
-            let accounts: HashMap<u64, db::templates::ClientDB> = json_to_object(accounts).unwrap();
-            println!("{:?}", accounts);
+            let clients: HashMap<UID, Client> = json_to_object(clients).unwrap();
+            // let client_vec: ClientVector = ClientHashMap(clients.clone()).into();
+            for (_uid, client) in clients {
+                db.clients.upsert(&db.handle, &client)?;
+            }
+
+            let records = db.clients.get_uids(&db.handle, vec![])?;
+            for client in records.iter() {
+                println!(
+                    "Found client with UID: {}...{}: {}",
+                    client.uid, client.ip, client.port
+                );
+            }
+            println!("");
         }
         JsonFile::Players => {
-            mongo.set_db("players").unwrap()
             //
         }
+
+        JsonFile::Accounts => {}
     }
 
-    // load json into vec<T>; where T: object
-
-    // convert to bson
-    // use db tools to iterate through db and insert in-memory structures
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let mut watcher = Hotwatch::new_with_custom_delay(Duration::from_millis(100))?;
+    // write all initial
 
-    // watcher.watch("config/people.json", move |event| {
-    //     if let Event::Write(_path) = event {
-    //         trigger_upload(JsonFile::Players).unwrap();
-    //     }
-    // })?;
+    let mut watcher = Hotwatch::new_with_custom_delay(Duration::from_millis(100))?;
 
-    // watcher.watch(ACCOUNTS, move |event| {
-    //     if let Event::Write(_path) = event {
-    //         trigger_upload(JsonFile::Accounts).unwrap();
-    //     }
-    // })?;
+    watcher.watch("config/people.json", move |event| {
+        if let Event::Write(_path) = event {
+            trigger_upload(JsonFile::Players).unwrap();
+        }
+    })?;
 
-    // println!("Watchdog runing...");
-    // let t = thread::spawn(|| {});
-    // t.join().unwrap();
+    watcher.watch(CLIENTS, move |event| {
+        if let Event::Write(_path) = event {
+            trigger_upload(JsonFile::Clients).unwrap();
+        }
+    })?;
 
-    trigger_upload(JsonFile::Accounts).unwrap();
+    println!("Watchdog runing...");
+    let t = thread::spawn(|| loop {});
+    t.join().unwrap();
+
+    // trigger_upload(JsonFile::Clients).unwrap();
     Ok(())
 }

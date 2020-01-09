@@ -1,20 +1,16 @@
 //! Definitions and declarations of data structures relating comms
 
-use crate::connstates::{AwaitingAcctName, ConnState};
-use bson::oid::ObjectId;
-use futures::SinkExt;
-use std::collections::{HashMap, HashSet};
+use db::utils::UID;
+use states::ConnStates;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::net::TcpStream;
-use tokio::stream::{Stream, StreamExt};
+use tokio::stream::Stream;
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
-
-/// this will change, as UID needs to be u64 to sync with MongoDB consumption
-pub type UID = ObjectId;
 
 pub type Tx = mpsc::UnboundedSender<String>;
 pub type Rx = mpsc::UnboundedReceiver<String>;
@@ -50,7 +46,7 @@ impl ClientAccount {
 #[derive(Debug)]
 pub struct Client {
     pub uid: UID,
-    pub state: ConnState,
+    pub state: ConnStates,
     pub lines: Framed<TcpStream, LinesCodec>,
     pub addr: SocketAddr,
     rx: Rx,
@@ -68,7 +64,7 @@ impl Client {
         server.lock().await.clients.insert(uid.clone(), comms);
         Ok(Self {
             uid: uid,
-            state: ConnState::AwaitingAcctName(AwaitingAcctName::new()),
+            state: ConnStates::AwaitingName,
             lines: Framed::new(stream, LinesCodec::new()),
             addr: addr,
             rx: rx,
@@ -117,7 +113,7 @@ impl Server {
     }
 
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
-        for (uid, comms) in self.clients.iter_mut() {
+        for (_uid, comms) in self.clients.iter_mut() {
             if comms.0 != sender {
                 let _ = comms.1.send(message.into());
             } else {

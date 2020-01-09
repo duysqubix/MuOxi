@@ -5,7 +5,7 @@
 
 
 *MuOxi* is a modern library for creating [online multiplayer text
-games][wikimudpage] (MU* family) using the powerful features offered by Rust; backed by [Tokio][tokio] and [MongoDB][mongodb],. 
+games][wikimudpage] (MU* family) using the powerful features offered by Rust; backed by [Tokio][tokio] and [Diesel][diesel],. 
 It allows developers and coders to design and flesh out their worlds in a
 fast, safe, and reliable language. Explore MuOxi API the *[rustacean][gh-pages-site]* way Join us on [discord][discord].
 
@@ -15,17 +15,16 @@ fast, safe, and reliable language. Explore MuOxi API the *[rustacean][gh-pages-s
 The codebase is currently in *alpha* stage . Majority of development is done on the `master` 
 branch. There is a working TCP server that allows
 for multiple connections and handles them accordingly. Effort is focused at the moment in 
-designing the backend database structure using a combination of MongoDB and json files.
+designing the database architecture utilizing [Diesel][diesel] with [PostgreSQL][postgresql] backend.
 
 ## Contributions
 
-Any contributions from the community is appreciated and wanted! No matter your skill level any sort
-of effort into this project is extremely welcomed. For those wanting to contribute, fork the `master` branch
+No matter your skill level any sort of effort into this project is extremely welcomed. For those wanting to contribute, checkout the `master` branch
 and submit PR's. Any questions or information, we welcome you at our [discord][discord] server. Come on by.
 
 ## Road Map
 
-The bare minimum TODO features that must be implemented before I would consider it a bare mud game engine.
+The bare minimum TODO features that must be implemented before I would consider releasing v0.1.1
 
 * Allows for multiple communication protocols (*telnet, MCCP, websocket, etc*)
 * Allows for new player creation
@@ -36,12 +35,13 @@ The bare minimum TODO features that must be implemented before I would consider 
 * Implements a periodic message every *n* seconds
 * Implements some rudimentary admin control (eg. muting another player)
 * Basic cardinal movement
-* Implements a storage based system
+* ~~Implements a backend database, with friendly API tailored to MuOxi~~
+* Simple game showcasing features of MuOxi
 
 ## Database Design Architecture
 
 The database design is seperated into four different layers, with different levels of abstraction.
-MuOxi utilizes [MongoDB][mongodb] for its storage needs and [Redis][redis] for its caching and fast retrieval needs.
+MuOxi utilizes a [PostgreSQL][postgresql] backend for its storage needs and [Redis][redis] for its caching and fast retrieval needs.
  A unique design approach has been taken that allows information 
 to be kept safe from database corruption, brownouts, or blackouts. The ideology is
 as follows:
@@ -50,44 +50,48 @@ as follows:
  Layer 1: JSON Files <--------
               |              |
              \ /             |
- Layer 2:  MongoDB           |
-              |              |
-             \ /             |
- Layer 3: Cache/Memory       |
-              |              |
-             \ /             |
+ Layer 2:  MongoDB -------   |
+                         |   |
+                         |   |
+-----------------------  |   |
+|Layer 3: Cache/Memory|  |   |
+-----------------------  |   |
+        |    / \         |   |
+       \ /    |         \ /  |
  Layer 4: MuOxi Applications--
 ```
 
 #### Layer 1: Flat Files
 
 The entire database actually lives in JSON files from accounts, mobs, players, equipment, spells, skills, etc... 
-JSON files where chosen because of its close relationship with MongoDB native storage choice, [BSON][bson]; as well
-as it's human friendly format. A seperate process called the *watchdog* monitors custom defined `.json` files in the 
+JSON files where chosen because of the *hyper-fast* libraries available for manipulating json files in Rust and its friendly human readability.
+A seperate process called the *watchdog* monitors custom defined `.json` files in the 
 `/config` directory for any changes to contents themselves. Upon a detected change it triggers an upload piece of logic
-that *updates* [MongoDB][mongodb], which leads us to layer 2 of the design.
+that *updates* [postgreSQL][postgresql] database using [Diesel][diesel], which leads us to layer 2 of the design.
 
 
-#### Layer 2: MongoDB
+#### Layer 2: PostgreSQL
 
 This is where all persistent data will live throughout, and past, the life-span of MuOxi. [MongoDB][mongodb] naturally
 stores data in a [BSON][bson] format, and allows all the goodies that come with any database *(indexing, search, upsert, insert, deletion)*
 The database should always be a reflection of what is stored in the flat files, when MuOxi uses data from the database, it gets loaded 
 and we move to layer 3 of the design.
+This is where all persistent data will live throughout, and past, the life-span of MuOxi. Powered by an ORM management system, [Diesel][diesel] with
+[postgreSQL][postgresql] backend. The database should always be a reflection of what is stored in the `.json` files. MuOxi applications 
+queries straight from the database. 
 
-#### Layer 3: Cache/In-Memory
+#### Layer 3: Cache/In-Memory 
 
-This layer is dominated by [Redis][redis], for quick retrieval of information and adding ad-hoc non-persistent data such as combat,
-triggers, and other various information that would not be detrimental to the engine if the engine or database were to become corrupted 
-and/or shutdown for whatever reason. At initial startup redis will cache the entire database into it's memory where then layer 4 will read from.
-If changes occur within the MongoDB itself, redis will recache. 
+This is a helper layer that is dominated by [Redis][redis], for quick retrieval of information and adding ad-hoc non-persistent data such as combat,
+triggers, and other various information that would not be detrimental if a shutdown occured for whatever reason. This layer is meant to be used on a
+*use-if-needed* basis.
 
 #### Layer 4: MuOxi Applications
 
 This is the layer where MuOxi will actually use all persistent and non-persistent data to drive the actual engine itself. Whether it be
 handling different states of connected clients, combat data, player information, and any-and-all other memory will be read from the cached database
 to keep the engine running. Upon an action within MuOxi that would causes a change to the Database, MuOxi will actually write to the flat-files
-instead of directly to Mongo. This was a throughouly thought out process to keep MongoDB a read-only database, from the perspective of the engine itself.
+instead of directly to PostgreSQL. This was a throughouly thought out process to keep PostgreSQL a read-only database, from the perspective of the engine itself.
 When a change occurs and MuOxi writes to the flat files we began again at layer 1 of the design. __It is the responsibility of the WatchDog to monitor changes to
 the json files and update MongoDB. MongoDB and the JSON files should always be a reflection of each other.__
 
@@ -141,16 +145,16 @@ As it stands the engine has the following capabilities:
 
 The project contains two seperate bin that can both be evoked from the command line:
 
-* *(Not working as intended at the moment)* cargo run --bin muoxi_web
+* *(Not working as intended at the moment)* **cargo run --bin muoxi_web**
     * Starts the websocket server listening for incoming webclients, *default 8001*
 
-* cargo run --bin muoxi_staging
+* **cargo run --bin muoxi_staging**
     * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
 
-* cargo run --bin muoxi_watchdog
+* **cargo run --bin muoxi_watchdog**
   * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update MongoDB
 
-* cargo run --bin muoxi_engine
+* **cargo run --bin muoxi_engine**
     * Starts the main game engine running in it's own seperate process. The whole game is contained
     within a TCP listening server that exchanges information back and forth between to the Proxy Server. *Right now it is just an echo server*
 
@@ -181,7 +185,8 @@ that I think will make this an outstanding project.
 [amethyst]: https://amethyst.rs/
 [discord]: https://discord.gg/H6Sh3CJ
 [tokio]: https://github.com/tokio-rs/tokio
-[mongodb]: https://www.mongodb.com/
+[diesel]: http://diesel.rs/
 [bson]: http://bsonspec.org/
 [redis]: https://redis.io/
 [gh-pages-site]: https://duysqubix.github.io/MuOxi/
+[postgresql]: https://www.postgresql.org/

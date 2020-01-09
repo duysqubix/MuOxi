@@ -7,21 +7,18 @@
 //!
 
 pub mod comms;
-pub mod connstates;
 pub mod copyover;
 
-use bson::oid::ObjectId;
-use comms::{Client, ClientAccount, Comms, Server, UID};
-use connstates::{NewAcct, Next};
+use comms::{Client, ClientAccount, Comms, Server};
+use db::utils::gen_uid;
 use futures::future::try_join;
-use futures::Future;
 use futures::SinkExt;
-use rand::prelude::*;
+use states::ConnStates;
 use std::error::Error;
 use std::sync::Arc;
 use std::{env, str};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::stream::{Stream, StreamExt};
+use tokio::stream::StreamExt;
 use tokio::sync::Mutex;
 use tokio_util::codec::LinesCodecError;
 
@@ -64,7 +61,7 @@ pub async fn get<'a>(client: &'a mut Client) -> String {
 pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
     // add client to server instance
     // let uid: UID = rand::thread_rng().gen();
-    let uid: UID = ObjectId::new()?;
+    let uid = gen_uid();
     let addr = stream.peer_addr()?;
     let mut new_client = Client::new(uid.clone(), server.clone(), stream).await?;
 
@@ -88,7 +85,7 @@ pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<()
                 send(&mut new_client, greetings.as_str()).await?;
                 let new_name = get(&mut new_client).await;
 
-                new_client.state = new_client.state.on_new_acct(NewAcct::new(new_name.clone()));
+                new_client.state = ConnStates::AwaitingName;
                 let new_acct = ClientAccount::new(new_name.clone());
 
                 {

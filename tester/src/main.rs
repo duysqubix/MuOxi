@@ -1,19 +1,11 @@
-use bson::oid::ObjectId;
+#![allow(unused_imports, dead_code, unused_variables)]
 use db;
-use hotwatch::{Event, Hotwatch};
 use redis::{Commands, PipelineCommands};
 use serde::{Deserialize, Serialize};
 use serde_json::Result as serdeResult;
 use states;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-use std::thread;
 use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,23 +14,6 @@ struct Person {
     name: String,
     age: u8,
     email: String,
-}
-
-fn read_file(path: String) -> serde_json::Result<serde_json::Value> {
-    let file = File::open(path).unwrap();
-    let reader = BufReader::new(&file);
-    let json: serde_json::Value = serde_json::from_reader(reader).unwrap();
-    Ok(json)
-}
-
-fn write_to_file<'de, T: Serialize + Deserialize<'de>>(
-    path: String,
-    object: &T,
-) -> serdeResult<()> {
-    thread::sleep(Duration::from_millis(100));
-    let file = File::create(path).unwrap();
-    serde_json::to_writer_pretty(&file, object)?;
-    Ok(())
 }
 
 fn fetch_an_integer() -> redis::RedisResult<isize> {
@@ -57,20 +32,36 @@ fn fetch_an_hmap() -> redis::RedisResult<HashMap<String, String>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let client = redis::Client::open("redis://127.0.0.1")?;
-    let mut con = client.get_connection()?;
+    //************************** PostgreSQL/Desiel*****************
 
-    let key = "the_key";
-    let (new_val,): (isize,) = redis::transaction(&mut con, &[key], |con, pipe| {
-        let old_val: isize = con.get(key)?;
-        pipe.set(key, old_val + 1).ignore().get(key).query(con)
-    })?;
+    let db = db::DatabaseHandler::connect();
+    let new_client = db::clients::Client {
+        uid: 124,
+        ip: "192.168.0.1".to_string(),
+        port: 8002,
+    };
 
-    println!("{}", new_val);
-    //
+    let result = db.clients.upsert(&db.handle, &new_client).unwrap();
+    // println!("{:?}", result);
+    let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
+    println!("Deleted {} record", num_deleted.unwrap());
+    let records = db.clients.get_uids(&db.handle, vec![]);
+    for record in records {
+        println!("{:?}", record);
+    }
+
     // ******************* Redis Read/Write *********************
-    //
+    // let client = redis::Client::open("redis://127.0.0.1")?;
+    // let mut con = client.get_connection()?;
 
+    // redis::cmd("SET").arg("the_key").arg(23).query(&mut con)?;
+    // let key = "the_key";
+    // let (new_val,): (isize,) = redis::transaction(&mut con, &[key], |con, pipe| {
+    //     let old_val: isize = con.get(key)?;
+    //     pipe.set(key, old_val + 1).ignore().get(key).query(con)
+    // })?;
+
+    // println!("{}", new_val);
     //
     // ********** Serialzing/Deserialzing to JSON ***********************//
     //
@@ -122,76 +113,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // write_to_file("config/people.json".to_string(), &json).expect("Couldn't write to file");
 
-    //
-    // ********** BSON and MongoDB ***********************//
-    //
-    // let mut client = db::DatabaseHandler::new("MuOxi".to_string()).unwrap();
-    // client.set_db("test").unwrap();
-
-    // let state = states::ConnStates::AwaitingName;
-    // let ncharacters = 0;
-    // let new_client = db::clients::ClientDB {
-    //     uid: db::utils::gen_uid(),
-    //     name: "Duan".to_string(),
-    //     ip: "192.168.1.5".to_string(),
-    //     port: 5756,
-    //     state: state,
-    //     ncharacters: ncharacters,
-    // };
-
-    // let mudcrab = db::clients::Character {
-    //     uid: db::utils::gen_uid(),
-    //     name: "Mud Crab".to_string(),
-    //     class: "Warrior".to_string(),
-    //     gold: 110,
-    // };
-
-    // let accounts = client
-    //     .get_collection("test")
-    //     .expect("Couldn't find accounts collection");
-    // let mobs = client
-    //     .get_collection("mobs")
-    //     .expect("Couldn't find mobs collection");
-
-    // client
-    //     .insert_one(&mudcrab, &mobs, None)
-    //     .unwrap_or_else(|e| {
-    //         println!("{:?}", e);
-    //     });
-
-    // let crab1 = client
-    //     .get_doc(&mudcrab, &mobs, db::utils::FilterOn::UID, None)
-    //     .unwrap();
-
-    // if let Some(crab1) = crab1 {
-    //     let mut result: db::clients::Character = db::utils::to_object(crab1).unwrap();
-    //     println!("{:?}", result);
-
-    //     result.name = "Large Mud Crab".to_string();
-    //     client
-    //         .update(&result, &mobs, db::utils::FilterOn::UID, None, None)
-    //         .unwrap();
-    // }
-
-    // client
-    //     .insert_one(&new_client, &accounts, None)
-    //     .unwrap_or_else(|e| {
-    //         println!("{:?}", e);
-    //     });
-
-    // client
-    //     .update(
-    //         &new_client,
-    //         &accounts,
-    //         db::utils::FilterOn::NAME,
-    //         None,
-    //         None,
-    //     )
-    //     .unwrap();
-
-    // println!("{:?}", new_client);
-    // hot_watch.join().unwrap();
     println!("Done with main");
-    // wd.join().unwrap();
     Ok(())
 }
