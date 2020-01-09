@@ -1,6 +1,7 @@
 #![allow(unused_imports, dead_code, unused_variables)]
 use db;
-use redis::{Commands, PipelineCommands};
+use db::cache;
+use redis::{Commands, Connection, FromRedisValue, Value};
 use serde::{Deserialize, Serialize};
 use serde_json::Result as serdeResult;
 use states;
@@ -16,41 +17,49 @@ struct Person {
     email: String,
 }
 
-fn fetch_an_integer() -> redis::RedisResult<isize> {
-    let client = redis::Client::open("redis://127.0.0.1/")?;
-    let mut con = client.get_connection()?;
+// fn fetch_an_integer() -> redis::RedisResult<isize> {
+//     let client = redis::Client::open("redis://127.0.0.1/")?;
+//     let mut con = client.get_connection()?;
 
-    let _: () = con.set("my_key", 42)?;
-    con.get("my_key")
-}
+//     let _: () = con.set("my_key", 42)?;
+//     con.get("my_key")
+// }
 
-fn fetch_an_hmap() -> redis::RedisResult<HashMap<String, String>> {
-    let client = redis::Client::open("redis://127.0.0.1")?;
-    let mut con = client.get_connection()?;
-    let map: HashMap<String, String> = con.hgetall("person")?;
-    Ok(map)
-}
+// fn fetch_an_hmap() -> redis::RedisResult<HashMap<String, String>> {
+//     let client = redis::Client::open("redis://127.0.0.1")?;
+//     let mut con = client.get_connection()?;
+//     let map: HashMap<String, String> = con.hgetall("person")?;
+//     Ok(map)
+// }
 
 fn main() -> Result<(), Box<dyn Error>> {
     //************************** PostgreSQL/Desiel*****************
 
-    let db = db::DatabaseHandler::connect();
-    let new_client = db::clients::Client {
-        uid: 124,
-        ip: "192.168.0.1".to_string(),
-        port: 8002,
-    };
+    // let db = db::DatabaseHandler::connect();
+    // let new_client = db::clients::Client {
+    //     uid: 124,
+    //     ip: "192.168.0.1".to_string(),
+    //     port: 8002,
+    // };
 
-    let result = db.clients.upsert(&db.handle, &new_client).unwrap();
-    // println!("{:?}", result);
-    let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
-    println!("Deleted {} record", num_deleted.unwrap());
-    let records = db.clients.get_uids(&db.handle, vec![]);
-    for record in records {
-        println!("{:?}", record);
-    }
+    // let result = db.clients.upsert(&db.handle, &new_client).unwrap();
+    // // println!("{:?}", result);
+    // let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
+    // println!("Deleted {} record", num_deleted.unwrap());
+    // let records = db.clients.get_uids(&db.handle, vec![]);
+    // for record in records {
+    //     println!("{:?}", record);
+    // }
 
-    // ******************* Redis Read/Write *********************
+    //******************* Redis Read/Write *********************
+    let mut cache = cache::Cache::new()?;
+    let () = cache.conn.set("my_key", 42)?;
+
+    let k: Option<usize> = cache.conn.getset("my_key", 43)?;
+
+    println!("{:?}", k);
+
+    // println!("{:?}", k);
     // let client = redis::Client::open("redis://127.0.0.1")?;
     // let mut con = client.get_connection()?;
 
@@ -62,7 +71,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     // })?;
 
     // println!("{}", new_val);
-    //
     // ********** Serialzing/Deserialzing to JSON ***********************//
     //
     // let mut people: HashMap<String, Person> = HashMap::new();
