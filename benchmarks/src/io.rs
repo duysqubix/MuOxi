@@ -1,8 +1,9 @@
 #![allow(unused_imports)]
-use db::utils::{json_to_object, JsonDecoderResult};
+use crate::report::{Report, ReportBuilder};
+use db::utils::{json_to_object, read_json_file, write_json_file, JsonDecoderResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{remove_file, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::time::SystemTime;
 
@@ -16,37 +17,45 @@ struct Person {
     vit: usize,
 }
 
-pub fn read_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value> {
-    let mut s = Vec::new();
-    File::open(path).unwrap().read_to_end(&mut s).unwrap();
-    let json: serde_json::Value = serde_json::from_slice(&s)?;
-    Ok(json)
-}
-
 pub fn benchmark_io_json_100_000() -> Result<(), Box<dyn std::error::Error>> {
+    let mut s = String::new();
     let now = SystemTime::now();
     let start = now.elapsed().unwrap().as_millis();
-    let records = read_file("db_100_000.json")?;
+    let records = read_json_file("benchmarks/db_100_000.json")?;
     let p1 = now.elapsed().unwrap().as_millis();
-    println!(
-        "reading took {} us",
+    let t = format!(
+        "reading took {} ms\n",
         now.elapsed().unwrap().as_millis() - start
     );
 
+    s.push_str(&t);
+
     let mut records: HashMap<usize, Person> = json_to_object(records)?;
     let p2 = now.elapsed().unwrap().as_millis();
-    println!("deserializing took {} us", (p2 - p1));
-
+    let t = format!("deserializing took {} ms\n", (p2 - p1));
+    s.push_str(&t);
     // change a single thing and write back to file.
     let item = records.get_mut(&1).unwrap();
     item.name = "Duan Uys".to_string();
 
-    let file = File::create("db_100_000_altered.json")?;
-    let writer = BufWriter::new(&file);
-    serde_json::to_writer_pretty(writer, &records)?;
+    write_json_file("benchmarks/db_100_000_altered.json", &records)?;
     let p3 = now.elapsed().unwrap().as_millis();
 
-    println!("writing took {} us", p3 - p2);
-    println!("Total time: {}us", now.elapsed().unwrap().as_millis());
+    let t = format!(
+        "writing took {} ms\nTotal time: {}ms",
+        p3 - p2,
+        now.elapsed().unwrap().as_millis()
+    );
+    s.push_str(&t);
+
+    let mut report = ReportBuilder::new();
+    report
+        .with_title("I/O Benchmark with 100_000 elements")
+        .with_body(&s)
+        .build_report()
+        .write_report("benchmarks/results/io_benchmarks.txt")?;
+
+    // clean up and remove altered file
+    remove_file("benchmarks/db_100_000_altered.json")?;
     Ok(())
 }
