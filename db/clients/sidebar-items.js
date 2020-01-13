@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Client",""],["ClientHandler",""],["ClientHashMap",""],["ClientVector",""]]});
+initSidebarItems({"struct":[["Client","representation of raw socket for incoming connection"],["ClientHandler","Holds utilities to maniuplate the Client table in the database"],["ClientHashMap","Wrapper around client json representation object"],["ClientVector","Wrapper around a vector of clients objects"]]});
