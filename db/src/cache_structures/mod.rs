@@ -1,28 +1,29 @@
 #![deny(missing_docs)]
 //!
 //! Collection of utilies that define structures to store in caching server
-//! as well as parsing those objects for server consumption.cache_structures
+//! as well as parsing those objects for server consumption
 //!
 //! For every wrapper around a rust object that you would like to serialize
 //! into the caching server needs to have at least two fields to make it possible
+//! 1) redis::Connection
+//! 2) UID
 //!
-//! ### Example
-//! ```ignore
-//! use crate::utils::UID;
+//! Defining this trait on a struct will allow methods to become available where
+//! you can serialize/deserialize your rust object into redis server.Connection
 //!
-//! // each struct will begin with *Cache[Name]*
-//! pub struct CacheMyStruct{
-//!     conn: Cache // <- wrapper of Connection to cache server
-//!     uid: UID // <- must include a unique id number
-//! }
-//! ```
-//! All other fields within the struct must be wrapped with `Option<MyField>`
+//! The naming scheme is pretty simple, as it uses the following format.
+//!
+//! `MyStruct:UID:fieldName fieldValue`
+//!
+//! this simple use of redis `get/set` allows individual fields to contain meta data
+//! whereby `hmap` will not allow, such as expirary times for fields etc..
+//!
 
 pub mod socket;
 
-use crate::cache::Cache;
 use crate::utils::UID;
-use redis::{RedisResult, ToRedisArgs};
+use redis::{Commands, Connection, FromRedisValue, RedisResult, ToRedisArgs};
+use std::string::ToString;
 
 /// trait to all structures that are cachable to cache server
 pub trait Cachable {
@@ -35,13 +36,27 @@ pub trait Cachable {
     where
         Self: std::marker::Sized;
 
-    /// return hmap key with correct naming convention
-    fn make_key<'a>(&self, name: &'a str, uid: UID) -> String {
-        format!("{}:{}", name, uid)
+    /// Permentatly removes all data associated to this object from redis server
+    fn destruct(self) -> RedisResult<()>;
+
+    /// retrieve UID for object
+    fn uid(&self) -> UID;
+
+    /// retrieve name of object
+    fn name(&self) -> &str;
+
+    /// create key from struct name, uid, and custom identifier
+    fn make_key<'a>(&self, field_name: &'a str) -> String {
+        format!("{}:{}:{}", self.name(), self.uid(), field_name)
     }
 
-    /// make a redis compatible tuple for field:value
-    fn make_item<F: ToRedisArgs, V: ToRedisArgs>(&self, field: F, value: V) -> (F, V) {
-        (field, value)
+    /// Create tag for redis consumption in the format of
+    /// `(Name:uid:field, value)`
+    fn create_tag<'a, T: ToRedisArgs + ToString + Clone>(
+        &self,
+        field_name: &'a str,
+        field_value: &'a T,
+    ) -> (String, String) {
+        (self.make_key(field_name), field_value.to_string())
     }
 }

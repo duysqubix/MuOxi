@@ -12,8 +12,10 @@ pub mod comms;
 pub mod copyover;
 
 use comms::{Client, ClientAccount, Comms, Server};
-use db::utils::gen_uid;
-use db::DatabaseHandler;
+use db::utils::{gen_uid, UID};
+// use db::DatabaseHandler;
+use db::cache_structures::socket::CacheSocket;
+use db::cache_structures::Cachable;
 use futures::future::try_join;
 use futures::SinkExt;
 use states::ConnStates;
@@ -62,6 +64,7 @@ pub async fn get<'a>(client: &'a mut Client) -> String {
 /// the entire lifetime of the connected client is handled within this function.
 ///
 pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    let mut cache_socket = CacheSocket::new();
     let uid = gen_uid();
     let addr = stream.peer_addr()?;
     let mut new_client = Client::new(uid, server.clone(), stream).await?;
@@ -74,14 +77,15 @@ pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<()
         addr.port(),
         addr.port() as i32
     );
-    // let db_client = db::clients::Client::new(uid, ip, addr.port() as i32);
-    // let _ = db
-    //     .clients
-    //     .upsert(&db.handle, &db_client)
-    //     .expect("Couldn't insert new client into database");
+    cache_socket
+        .set_ip(&ip)
+        .set_port(addr.port() as u32)
+        .dump()?;
 
     //sanity check, send db entry to client
-    // let record = format!("{:?}", db.clients.get_uid(&db.handle, uid)?);
+    println!("{:?}", cache_socket.get_value::<u32>("port"));
+    println!("{:?}", cache_socket.get_value::<UID>("uid"));
+    println!("{:?}", cache_socket.get_value::<String>("ip"));
 
     // send(&mut new_client, record.as_str()).await?;
     // send intro message
@@ -191,8 +195,8 @@ pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<()
         server.broadcast(addr, &msg).await;
 
         // remove client from database
-        // db.clients.remove_uid(&db.handle, uid)?;
-        // println!("Remove client from database");
+        cache_socket.destruct()?;
+        println!("Remove client from redis");
     }
 
     Ok(())

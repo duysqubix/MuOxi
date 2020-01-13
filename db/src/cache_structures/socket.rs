@@ -6,16 +6,17 @@
 use crate::cache::Cache;
 use crate::cache_structures::Cachable;
 use crate::utils::{gen_uid, UID};
-use redis::{Commands, Connection, RedisResult};
-use std::borrow::ToOwned;
-
-static CACHE_SOCKET: &'static str = "CacheSocket";
+use redis::{Commands, Connection, FromRedisValue, RedisResult};
+use std::str::FromStr;
 
 /// Template structure to for raw socket
 /// information
 pub struct CacheSocket {
     /// raw connection to cache server
     conn: Connection,
+
+    //name of struct, to be used as first parameter in redis storage
+    name: String,
 
     /// unique id of socket
     pub uid: UID,
@@ -33,6 +34,7 @@ impl<'a> CacheSocket {
         let conn = Cache::new().expect("Couldn't establish connection to caching server");
         Self {
             conn: conn,
+            name: String::from("Socket"),
             uid: gen_uid(),
             ip: String::new(),
             port: 0,
@@ -50,27 +52,72 @@ impl<'a> CacheSocket {
         self.port = port;
         self
     }
+
+    /// retrieve a value from field of struct, if it does not exist, will return None
+    pub fn get_value<T: FromStr + std::fmt::Debug>(&mut self, field_name: &'a str) -> Option<T>
+    where
+        T::Err: std::fmt::Debug,
+    {
+        let key = self.make_key(field_name);
+
+        let result: Option<String> = match self.conn.get(key) {
+            Ok(result) => Some(result),
+            Err(_) => None,
+        };
+
+        if result.is_some() {
+            return Some(
+                result
+                    .unwrap()
+                    .parse::<T>()
+                    .expect("Couldn't parse result form redis to appropriate type"),
+            );
+        } else {
+            return None;
+        }
+    }
 }
 
 impl Cachable for CacheSocket {
     fn dump(&mut self) -> RedisResult<()> {
         // convert current structure to to be fed into redis::hset_multiple
-        let key = self.make_key(CACHE_SOCKET, self.uid);
-        let ip = self.make_item("ip", &self.ip);
-        let port = self.make_item("port", self.port);
-        self.conn.hset(&key, ip.0, ip.1)?;
-        self.conn.hset(&key, port.0, port.1)?;
-        println!("{}", key);
+        // let key = self.make_key(CACHE_SOCKET, self.);
+        let ip = self.create_tag("ip", &self.ip);
+        let port = self.create_tag("port", &self.port);
+        let uid = self.create_tag("uid", &self.uid);
+        println!("{:?}\n{:?}", ip, port);
+
+        self.conn.set_multiple(&vec![ip, port, uid])?;
+
         Ok(())
     }
 
     fn load(mut self) -> RedisResult<Self> {
-        let key = self.make_key(CACHE_SOCKET, self.uid);
-        let ip: String = self.conn.hget(&key, "ip")?;
-        let port: u32 = self.conn.hget(&key, "port")?;
-
+        let ip: String = self.conn.get(self.make_key("ip"))?;
+        let port: String = self.conn.get(self.make_key("port"))?;
         self.ip = ip;
-        self.port = port;
+        self.port = port
+            .parse::<u32>()
+            .expect("Couldn't not parse `port` to a number when deserializing from redis.");
         Ok(self)
+    }
+
+    fn destruct(mut self) -> RedisResult<()> {
+        let ip = self.make_key("ip");
+        let port = self.make_key("port");
+        let uid = self.make_key("uid");
+
+        self.conn.del(ip)?;
+        self.conn.del(port)?;
+        self.conn.del(uid)?;
+
+        Ok(())
+    }
+    fn uid(&self) -> UID {
+        self.uid
+    }
+
+    fn name(&self) -> &str {
+        self.name.as_str()
     }
 }
