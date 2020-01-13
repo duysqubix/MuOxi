@@ -25,23 +25,20 @@ use redis::{Connection, RedisResult};
 pub static REDIS_SERVER: &'static str = "redis://127.0.0.1";
 
 /// main wrapper around redis::Connection
-pub struct Cache {
-    /// Raw connection to caching server
-    pub conn: Connection,
-}
+pub struct Cache;
 
 impl Cache {
     /// create new connection to cache server using custom uri
-    pub fn new_with_uri<'a>(uri: &'a str) -> RedisResult<Self> {
+    pub fn new_with_uri<'a>(uri: &'a str) -> RedisResult<Connection> {
         let client = redis::Client::open(uri)?;
         let conn = client.get_connection()?;
-        Ok(Self { conn: conn })
+        Ok(conn)
     }
 
     /// create new connection to cache server using default uri
-    pub fn new() -> RedisResult<Self> {
+    pub fn new() -> RedisResult<Connection> {
         let client = redis::Client::open(REDIS_SERVER)?;
         let conn = client.get_connection()?;
-        Ok(Self { conn: conn })
+        Ok(conn)
     }
 }
