@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["ClientData",""],["Clients",""],["WebSocketServer",""]]});
+initSidebarItems({"fn":[["main",""]],"struct":[["ClientData",""],["Clients",""],["HTML",""],["InternalTcpClient",""],["WebSocketServer",""]],"type":[["IpAddr",""]]});
