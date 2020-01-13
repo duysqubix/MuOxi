@@ -66,7 +66,7 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
             }
 
             let records = db.clients.get_uids(&db.handle, vec![])?;
-            for client in records.iter() {
+            for client in records.0.iter() {
                 println!(
                     "Found client with UID: {}...{}: {}",
                     client.uid, client.ip, client.port

@@ -17,11 +17,30 @@ use std::convert::From;
 pub struct Client {
     pub uid: i64,
     pub ip: String,
-    pub port: i16,
+    pub port: i32,
 }
 
+impl Client {
+    pub fn new(uid: UID, ip: String, port: i32) -> Self {
+        Self { uid, ip, port }
+    }
+}
+
+#[derive(Debug)]
 pub struct ClientHashMap(pub HashMap<UID, Client>);
+
+#[derive(Debug)]
 pub struct ClientVector(pub Vec<Client>);
+
+impl ClientVector {
+    pub fn empty() -> Self {
+        Self(vec![])
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
 
 impl From<ClientHashMap> for ClientVector {
     fn from(hmap: ClientHashMap) -> Self {
@@ -44,7 +63,7 @@ impl ClientHandler {
 
     /// Attempts to insert a new client with UID, if there is a conflic,
     /// it will update the record. Doesn't work quite as expected.. Followed the
-    /// guides from [here] (https://stackoverflow.com/questions/47626047/execute-an-insert-or-update-using-diesel)
+    /// guides from [here](https://stackoverflow.com/questions/47626047/execute-an-insert-or-update-using-diesel)
     /// but doesn't seem to actually `set` the excluded value where the conflict happened..
     pub fn upsert_batch(&self, conn: &PgConnection, clients: ClientVector) -> QueryResult<()> {
         diesel::insert_into(clients::table)
@@ -80,22 +99,36 @@ impl ClientHandler {
         Ok(deleted)
     }
 
-    /// Get single UID from db
-    pub fn get_uid(&self, conn: &PgConnection, id: UID) -> QueryResult<Vec<Client>> {
+    pub fn uid_exists(&self, conn: &PgConnection, id: UID) -> bool {
+        let mut exists: bool = false;
+        let record = self.get_uid(conn, id).unwrap_or(ClientVector::empty());
+
+        if record.len() > 0 {
+            exists = true;
+        }
+
+        exists
+    }
+
+    /// Get single UID from db, if UID doesn't exist it will
+    /// return an empty vector
+    pub fn get_uid(&self, conn: &PgConnection, id: UID) -> QueryResult<ClientVector> {
         use self::clients::dsl;
 
-        dsl::clients.filter(dsl::uid.eq(id)).load::<Client>(conn)
+        let record = dsl::clients.filter(dsl::uid.eq(id)).load::<Client>(conn)?;
+        Ok(ClientVector(record))
     }
 
     /// Retrieve a list of UIDS from db by suppling a vec of UIDs
     /// if an empty set of uids is supplied, it will retrieve all records in table
-    pub fn get_uids(&self, conn: &PgConnection, uids: Vec<UID>) -> QueryResult<Vec<Client>> {
+    pub fn get_uids(&self, conn: &PgConnection, uids: Vec<UID>) -> QueryResult<ClientVector> {
         use self::clients::dsl;
 
         let mut results: Vec<Client> = Vec::new();
 
         if uids.len() == 0 {
-            return dsl::clients.load::<Client>(conn);
+            let all_records = dsl::clients.load::<Client>(conn)?;
+            return Ok(ClientVector(all_records));
         }
 
         for uid in uids.iter() {
@@ -107,7 +140,7 @@ impl ClientHandler {
                 println!("Couldn't find record with uid: `{}`", uid);
             }
         }
-        Ok(results)
+        Ok(ClientVector(results))
     }
 
     /// Get a range of UIDs
@@ -118,18 +151,20 @@ impl ClientHandler {
         conn: &PgConnection,
         from: UID,
         to: UID,
-    ) -> QueryResult<Vec<Client>> {
+    ) -> QueryResult<ClientVector> {
         let uid_range: Vec<UID> = (from..to).collect();
         self.get_uids(conn, uid_range)
     }
 
     /// retrieve records with exact IP address
-    pub fn get_ip_exact<'a>(&self, conn: &PgConnection, ip: &'a str) -> QueryResult<Vec<Client>> {
+    pub fn get_ip_exact<'a>(&self, conn: &PgConnection, ip: &'a str) -> QueryResult<ClientVector> {
         use self::clients::dsl;
 
-        dsl::clients
+        let record = dsl::clients
             .filter(dsl::ip.eq(ip.to_string()))
-            .load::<Client>(conn)
+            .load::<Client>(conn)?;
+
+        Ok(ClientVector(record))
     }
 
     /// retrieve a vector of ip address with the appropriate
@@ -146,11 +181,13 @@ impl ClientHandler {
         &self,
         conn: &PgConnection,
         pattern_match: String,
-    ) -> QueryResult<Vec<Client>> {
+    ) -> QueryResult<ClientVector> {
         use self::clients::dsl;
 
-        dsl::clients
+        let records = dsl::clients
             .filter(dsl::ip.like(pattern_match))
-            .load::<Client>(conn)
+            .load::<Client>(conn)?;
+
+        Ok(ClientVector(records))
     }
 }

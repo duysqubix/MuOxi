@@ -35,21 +35,25 @@ struct Person {
 fn main() -> Result<(), Box<dyn Error>> {
     //************************** PostgreSQL/Desiel*****************
 
-    // let db = db::DatabaseHandler::connect();
-    // let new_client = db::clients::Client {
-    //     uid: 124,
-    //     ip: "192.168.0.1".to_string(),
-    //     port: 8002,
-    // };
+    let db = db::DatabaseHandler::connect();
+    let new_client = db::clients::Client {
+        uid: 124,
+        ip: "192.168.0.1".to_string(),
+        port: 8002,
+    };
 
-    // let result = db.clients.upsert(&db.handle, &new_client).unwrap();
-    // // println!("{:?}", result);
-    // let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
-    // println!("Deleted {} record", num_deleted.unwrap());
-    // let records = db.clients.get_uids(&db.handle, vec![]);
-    // for record in records {
-    //     println!("{:?}", record);
-    // }
+    let result = db.clients.upsert(&db.handle, &new_client).unwrap();
+    // println!("{:?}", result);
+    let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
+    println!("Deleted {} record", num_deleted.unwrap());
+    let records = db.clients.get_uids(&db.handle, vec![]);
+    for record in records {
+        println!("{:?}", record);
+    }
+
+    // this uid does not exist
+    let no_exist = db.clients.get_uid(&db.handle, 0);
+    println!("{:?}", no_exist);
 
     //******************* Redis Read/Write *********************
     let mut cache = cache::Cache::new()?;
