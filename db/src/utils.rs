@@ -1,12 +1,22 @@
+#![allow(unused_imports)]
+
+//!
+//! Holds collections of regularly used functions that relate to database usage
+//!
+
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json;
 use std::fs::File;
+
 use std::io::{BufWriter, Read, Write};
 use std::time::SystemTime;
 
+/// unique id for each instance
 pub type UID = i64;
+
+/// custom result for decoding json values
 pub type JsonDecoderResult<T> = Result<T, serde_json::error::Error>;
 
 /// Reads JSON file and convert to JSON::Value
@@ -18,7 +28,7 @@ pub fn read_json_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value
     Ok(json)
 }
 
-// Serializes and writes structure to JSON
+/// Serializes and writes structure to JSON
 pub fn write_json_file<'a, T: Serialize>(path: &'a str, object: &T) -> serde_json::Result<()> {
     let errmsg = format!("Couldn't create file: {}", path);
     let file = File::create(path).expect(errmsg.as_str());

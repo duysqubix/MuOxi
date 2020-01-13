@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 table! {
     clients (uid) {
         uid -> Int8,

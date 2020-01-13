@@ -59,6 +59,7 @@ pub struct CopyOver<'a, R: ?Sized, W: ?Sized> {
     from: &'a SocketAddr,
 }
 
+/// do the actual async copy from read to write
 pub fn copy<'a, R, W>(
     reader: &'a mut R,
     writer: &'a mut W,

@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! WatchDog that monitors the custom defined `.json` files located within `config/` directory
 //! Runs as a completely seperate process apart from all servers. Watchdogs main job is to
 //! notice contents changes of file and sync them with Database
@@ -25,6 +27,7 @@ use std::io::BufReader;
 use std::thread;
 use std::time::Duration;
 
+/// static path to place of clients json file
 pub static CLIENTS: &'static str = "config/clients.json";
 
 /// Different `.json` storage files that need to be monitored

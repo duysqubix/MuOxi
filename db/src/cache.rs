@@ -26,6 +26,7 @@ pub static REDIS_SERVER: &'static str = "redis://127.0.0.1";
 
 /// main wrapper around redis::Connection
 pub struct Cache {
+    /// Raw connection to caching server
     pub conn: Connection,
 }
 

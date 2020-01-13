@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //!
 //! ## Main Proxy Staging TCP Server
 //!

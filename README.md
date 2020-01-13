@@ -38,6 +38,12 @@ The bare minimum TODO features that must be implemented before I would consider 
 * ~~Implements a backend database, with friendly API tailored to MuOxi~~
 * Simple game showcasing features of MuOxi
 
+## Quick Setup
+In order for MuOxi applications to work as expected, it is necessary to have a fully working PostgreSQL and Redis server running.
+You can change it in the code to what user postgres should be using, but the default is `muoxi` with password `muoxi`. Redis server
+should be running as well, if you have successfully installed in on your OS, you can start it from the terminal using `redis-server`.
+In the future I will add scripts that will do this for you, upon initiliazing MuOxi.
+
 ## Database Design Architecture
 
 The database design is seperated into four different layers, with different levels of abstraction.

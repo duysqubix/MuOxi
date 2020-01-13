@@ -13,30 +13,41 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::From;
 
+/// representation of raw socket for incoming connection
 #[derive(Queryable, Insertable, Debug, AsChangeset, Clone, Serialize, Deserialize)]
 pub struct Client {
+    /// unique id for each client
     pub uid: i64,
+
+    /// ip address where client has connected from
     pub ip: String,
+
+    /// port where client has connected from
     pub port: i32,
 }
 
 impl Client {
+    /// create new Client
     pub fn new(uid: UID, ip: String, port: i32) -> Self {
         Self { uid, ip, port }
     }
 }
 
+/// Wrapper around client json representation object
 #[derive(Debug)]
 pub struct ClientHashMap(pub HashMap<UID, Client>);
 
+/// Wrapper around a vector of clients objects
 #[derive(Debug)]
 pub struct ClientVector(pub Vec<Client>);
 
 impl ClientVector {
+    /// returns an empty initialized vector of clients
     pub fn empty() -> Self {
         Self(vec![])
     }
 
+    /// returns the length of current vector
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -48,6 +59,7 @@ impl From<ClientHashMap> for ClientVector {
     }
 }
 
+/// Holds utilities to maniuplate the Client table in the database
 pub struct ClientHandler;
 impl ClientHandler {
     /// Attempts to insert a new client with UID, if there is a conflic,
@@ -99,6 +111,7 @@ impl ClientHandler {
         Ok(deleted)
     }
 
+    /// checks to see if UID of client exists within database
     pub fn uid_exists(&self, conn: &PgConnection, id: UID) -> bool {
         let mut exists: bool = false;
         let record = self.get_uid(conn, id).unwrap_or(ClientVector::empty());

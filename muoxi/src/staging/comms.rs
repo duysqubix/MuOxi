@@ -12,7 +12,10 @@ use tokio::stream::Stream;
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
+/// alias for sending channel
 pub type Tx = mpsc::UnboundedSender<String>;
+
+/// alias for recieving channel
 pub type Rx = mpsc::UnboundedReceiver<String>;
 
 /// The types of message recieved
@@ -28,11 +31,15 @@ pub enum Message {
 /// struct holding client account information
 #[derive(Debug)]
 pub struct ClientAccount {
+    /// name of client account
     pub name: String,
+
+    /// number of characters associated with account
     pub ncharacters: u32,
 }
 
 impl ClientAccount {
+    /// creates new instance of account
     pub fn new(name: String) -> Self {
         Self {
             name: name,
@@ -45,14 +52,24 @@ impl ClientAccount {
 /// within the main `process`.
 #[derive(Debug)]
 pub struct Client {
+    /// unique id for client
     pub uid: UID,
+
+    /// current state of connected client
     pub state: ConnStates,
+
+    /// encodes and decodes incoming streams
     pub lines: Framed<TcpStream, LinesCodec>,
+
+    /// socket address of connected client
     pub addr: SocketAddr,
     rx: Rx,
 }
 
 impl Client {
+    /// asyncronously create a new client instance
+    /// this instance of client is only valid during the duration of
+    /// the time spent alive and connected to server
     pub async fn new(
         uid: UID,
         server: Arc<Mutex<Server>>,
@@ -105,6 +122,7 @@ pub struct Server {
 }
 
 impl Server {
+    /// creates shared struct between clients and actual server
     pub fn new() -> Self {
         Self {
             clients: HashMap::new(),
@@ -112,6 +130,7 @@ impl Server {
         }
     }
 
+    /// helper function that broadcasts data to all connected clients
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
         for (_uid, comms) in self.clients.iter_mut() {
             if comms.0 != sender {

@@ -52,6 +52,7 @@ pub fn benchmark_io_json_100_000() -> Result<(), Box<dyn std::error::Error>> {
     report
         .with_title("I/O Benchmark with 100_000 elements")
         .with_body(&s)
+        .with_footnotes("")
         .build_report()
         .write_report("benchmarks/results/io_benchmarks.txt")?;
 

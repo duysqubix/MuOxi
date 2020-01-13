@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //!
 //! Diesel powered ORM management library for MuOxi
 //! uses postgres
@@ -9,7 +11,6 @@ extern crate diesel;
 pub mod cache;
 pub mod clients;
 pub mod schema;
-pub mod templates;
 pub mod utils;
 
 use diesel::pg::PgConnection;
@@ -19,6 +20,8 @@ use diesel::prelude::*;
 pub struct DatabaseHandler {
     /// acutal connection to postgres database
     pub handle: PgConnection,
+
+    /// handle to the clients table
     pub clients: clients::ClientHandler,
 }
 

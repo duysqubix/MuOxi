@@ -1,0 +1,9 @@
+2020-01-13T08:33:30.101469400-07:00
+I/O Benchmark with 100_000 elements
+------------
+reading took 245 ms
+deserializing took 67 ms
+writing took 94 ms
+Total time: 406ms
+*
+
