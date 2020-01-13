@@ -2,7 +2,7 @@
 //! Wrapper around redis server to easy manipulate cached data
 //!
 //! ### Example
-//! ```
+//! ```ignore
 //! use db::cache::Cache;
 //! use redis::*;
 //!
