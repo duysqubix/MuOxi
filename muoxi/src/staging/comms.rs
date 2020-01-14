@@ -1,5 +1,6 @@
 //! Definitions and declarations of data structures relating comms
 
+use crate::prelude::{Rx, Tx};
 use crate::states::ConnStates;
 use db::utils::UID;
 use std::collections::HashMap;
@@ -11,12 +12,6 @@ use tokio::net::TcpStream;
 use tokio::stream::Stream;
 use tokio::sync::{mpsc, Mutex};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
-
-/// alias for sending channel
-pub type Tx = mpsc::UnboundedSender<String>;
-
-/// alias for recieving channel
-pub type Rx = mpsc::UnboundedReceiver<String>;
 
 /// The types of message recieved
 #[derive(Debug)]

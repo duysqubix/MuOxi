@@ -8,13 +8,16 @@
 //!
 //!
 
+pub mod cmds;
 pub mod comms;
 pub mod copyover;
+pub mod prelude;
 pub mod states;
 
 use comms::{Client, Comms, Server};
 use db::utils::{gen_uid, UID};
 // use db::DatabaseHandler;
+use crate::prelude::{LinesCodecResult, GAME_ADDR, PROXY_ADDR};
 use crate::states::ConnStates;
 use db::cache_structures::socket::CacheSocket;
 use db::cache_structures::Cachable;
@@ -28,15 +31,6 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::prelude::*;
 use tokio::stream::StreamExt;
 use tokio::sync::Mutex;
-use tokio_util::codec::LinesCodecError;
-
-type LinesCodecResult<T> = Result<T, LinesCodecError>;
-
-/// Current listening port of the MuOxi game engine
-pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
-
-/// Current listening port of the staging proxy server
-pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
 
 /// Friendly async wrapper to sending messages to client object
 ///
@@ -128,9 +122,21 @@ pub async fn process(
             game_loop = false;
         }
         if let Some(response) = get(&mut client).await {
-            // here is where we process input based on connection state
-            let resp = format!("You said, {}", response);
-            send(&mut client, &resp).await?;
+            let new_state = client.state.clone().execute(&mut client, response);
+            client.state = new_state;
+            let state = format!("({:?})", client.state);
+            send(&mut client, &state).await?;
+        // match client.state {
+        //     ConnStates::AwaitingName => {
+        //         // in awaiting name stage, do the following
+        //         // 1) check if input is new
+        //         // 1a) if new -> create new account (change state)
+        //         // 2) if not, check if account exists
+        //         // 3) if not, return errmsg and start from beginning
+        //         // 4) if account exists, ask for password (change state)
+        //     }
+        //     _ => (),
+        // }
 
         // for testing use server to use id
         // valid reponse
