@@ -7,7 +7,6 @@ use redis::{Commands, Connection, FromRedisValue, Value};
 use serde::{Deserialize, Serialize};
 
 use serde_json::Result as serdeResult;
-use states;
 use std::collections::HashMap;
 use std::error::Error;
 use std::thread;
@@ -41,8 +40,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut socket = CacheSocket::new();
     socket.set_ip("192.168.0.1").set_port(8001).dump()?;
-    let ip: String = socket.get_value("ip")?;
-    println!("{}", ip);
+    let ip = socket.get_value::<String>("ip");
+    println!("{:?}", ip);
     thread::sleep(Duration::from_secs(30));
     socket = socket.load()?;
     println!("{}", socket.port);

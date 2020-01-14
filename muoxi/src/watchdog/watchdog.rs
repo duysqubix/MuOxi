@@ -28,7 +28,7 @@ use std::thread;
 use std::time::Duration;
 
 /// static path to place of clients json file
-pub static CLIENTS: &'static str = "config/clients.json";
+pub static CLIENTS: &'static str = "json/clients.json";
 
 /// Different `.json` storage files that need to be monitored
 #[derive(Debug, Clone)]

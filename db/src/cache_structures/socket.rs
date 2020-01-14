@@ -6,7 +6,8 @@
 use crate::cache::Cache;
 use crate::cache_structures::Cachable;
 use crate::utils::{gen_uid, UID};
-use redis::{Commands, Connection, FromRedisValue, RedisResult};
+use redis::{Commands, Connection, RedisResult};
+use std::net::SocketAddr;
 use std::str::FromStr;
 
 /// Template structure to for raw socket
@@ -25,10 +26,22 @@ pub struct CacheSocket {
     pub ip: String,
 
     /// port of where socket is coming from
-    pub port: u32,
+    pub port: u16,
 }
 
 impl<'a> CacheSocket {
+    /// create instance of socket with supplied UID
+    pub fn new_with_uid(uid: UID) -> Self {
+        let conn = Cache::new().expect("Couldn't establish connection to caching server");
+        Self {
+            conn: conn,
+            name: String::from("Socket"),
+            uid: uid,
+            ip: String::new(),
+            port: 0,
+        }
+    }
+
     /// create blank instance of Socket
     pub fn new() -> Self {
         let conn = Cache::new().expect("Couldn't establish connection to caching server");
@@ -40,6 +53,13 @@ impl<'a> CacheSocket {
             port: 0,
         }
     }
+    /// set ip and port for this struct with a supplied `std::net::SocketAddr`
+    pub fn set_address(&mut self, addr: &SocketAddr) -> &mut Self {
+        let ip = format!("{}", addr.ip());
+        self.ip = String::from(ip);
+        self.port = addr.port();
+        self
+    }
 
     /// set ip for this struct
     pub fn set_ip(&mut self, ip: &'a str) -> &mut Self {
@@ -48,7 +68,7 @@ impl<'a> CacheSocket {
     }
 
     /// set port for this struct
-    pub fn set_port(&mut self, port: u32) -> &mut Self {
+    pub fn set_port(&mut self, port: u16) -> &mut Self {
         self.port = port;
         self
     }
@@ -85,8 +105,6 @@ impl Cachable for CacheSocket {
         let ip = self.create_tag("ip", &self.ip);
         let port = self.create_tag("port", &self.port);
         let uid = self.create_tag("uid", &self.uid);
-        println!("{:?}\n{:?}", ip, port);
-
         self.conn.set_multiple(&vec![ip, port, uid])?;
 
         Ok(())
@@ -97,7 +115,7 @@ impl Cachable for CacheSocket {
         let port: String = self.conn.get(self.make_key("port"))?;
         self.ip = ip;
         self.port = port
-            .parse::<u32>()
+            .parse::<u16>()
             .expect("Couldn't not parse `port` to a number when deserializing from redis.");
         Ok(self)
     }

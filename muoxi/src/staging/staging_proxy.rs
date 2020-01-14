@@ -10,22 +10,27 @@
 
 pub mod comms;
 pub mod copyover;
+pub mod states;
 
 use comms::{Client, ClientAccount, Comms, Server};
-use db::utils::{gen_uid, UID};
+use db::utils::gen_uid;
 // use db::DatabaseHandler;
+use crate::states::ConnStates;
 use db::cache_structures::socket::CacheSocket;
 use db::cache_structures::Cachable;
 use futures::future::try_join;
 use futures::SinkExt;
-use states::ConnStates;
 use std::error::Error;
 use std::sync::Arc;
 use std::{env, str};
+use tokio::fs::File;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::prelude::*;
 use tokio::stream::StreamExt;
 use tokio::sync::Mutex;
 use tokio_util::codec::LinesCodecError;
+
+type LinesCodecResult<T> = Result<T, LinesCodecError>;
 
 /// Current listening port of the MuOxi game engine
 pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
@@ -39,7 +44,7 @@ pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
 /// let msg = "Hello, and welcome to hell";
 /// send(&client, msg).await?;
 /// ```
-pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> Result<(), LinesCodecError> {
+pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> LinesCodecResult<()> {
     client.lines.send(msg.into()).await?;
     Ok(())
 }
@@ -59,42 +64,36 @@ pub async fn get<'a>(client: &'a mut Client) -> String {
     }
 }
 
+/// display welcome screen
+pub async fn display_welcome<'a>(client: &'a mut Client) -> LinesCodecResult<()> {
+    let mut file = File::open("resources/welcome.txt").await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+    client.lines.send(contents).await?;
+    Ok(())
+}
+
 ///
 /// Main processing piece of logic, once a connection is established to client
 /// the entire lifetime of the connected client is handled within this function.
 ///
 pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<(), Box<dyn Error>> {
-    let mut cache_socket = CacheSocket::new();
+    // gen a uid for this client
     let uid = gen_uid();
+
+    // obtain address of client
     let addr = stream.peer_addr()?;
+
+    // create client connec
     let mut new_client = Client::new(uid, server.clone(), stream).await?;
 
-    // create object for db
-    let ip = format!("{}", addr.ip());
-    println!(
-        "ip: {}, port: {}, portcast: {}",
-        ip,
-        addr.port(),
-        addr.port() as i32
-    );
-    cache_socket
-        .set_ip(&ip)
-        .set_port(addr.port() as u32)
-        .dump()?;
-
-    //sanity check, send db entry to client
-    println!("{:?}", cache_socket.get_value::<u32>("port"));
-    println!("{:?}", cache_socket.get_value::<UID>("uid"));
-    println!("{:?}", cache_socket.get_value::<String>("ip"));
-
-    // send(&mut new_client, record.as_str()).await?;
-    // send intro message
-    // name -> try to find account
-    // new -> create new account
+    // stores client information in redis
+    let mut cache_socket = CacheSocket::new_with_uid(uid);
+    cache_socket.set_address(&addr).dump()?;
+    display_welcome(&mut new_client).await?;
     let mut new_process = true;
     let mut acct_error_counter: usize = 0;
     while new_process {
-        send(&mut new_client, "Please enter account `name` or type `new`").await?;
         let response = get(&mut new_client).await;
         match response.to_lowercase().as_str() {
             "new" => {
@@ -216,8 +215,8 @@ pub async fn process(server: Arc<Mutex<Server>>, stream: TcpStream) -> Result<()
 ///
 pub async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>> {
     let mut outbound = TcpStream::connect(&game_addr).await?;
-    let inbound_addr = inbound.peer_addr().unwrap();
-    let outbound_addr = outbound.peer_addr().unwrap();
+    let inbound_addr = inbound.peer_addr()?;
+    let outbound_addr = outbound.peer_addr()?;
 
     let mut buf = [0; 1024];
 
@@ -226,7 +225,7 @@ pub async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), B
         "Proxing {} to {}, msg: {}",
         inbound_addr,
         outbound_addr,
-        str::from_utf8(&buf[0..n]).unwrap()
+        str::from_utf8(&buf[0..n])?
     );
 
     let (mut ri, mut wi) = inbound.split();

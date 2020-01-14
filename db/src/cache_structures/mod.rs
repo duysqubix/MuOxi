@@ -22,7 +22,7 @@
 pub mod socket;
 
 use crate::utils::UID;
-use redis::{Commands, Connection, FromRedisValue, RedisResult, ToRedisArgs};
+use redis::{RedisResult, ToRedisArgs};
 use std::string::ToString;
 
 /// trait to all structures that are cachable to cache server
