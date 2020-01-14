@@ -6,12 +6,10 @@
 //! * Roles
 //!
 use crate::comms::Client;
-use std::collections::HashSet;
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::marker::Send;
 use tokio::sync::mpsc;
 use tokio_util::codec::LinesCodecError;
-
 /// alias for sending channel
 pub type Tx = mpsc::UnboundedSender<String>;
 
@@ -31,9 +29,9 @@ pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
 pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
 
 /// defines a command trait
-pub trait Command {
+pub trait Command: Debug {
     /// name of command
-    fn name(&self) -> String;
+    fn name(&self) -> &str;
 
     /// a list of aliases that will invoke command
     fn aliases(&self) -> Vec<&str>;
@@ -41,8 +39,62 @@ pub trait Command {
     /// execute the actual command but only directs commands to game_server,
     /// will err if client state is not in playing
     fn execute_cmd(&self, game_server: &mut Client) -> CommandResult<()>;
+
+    /// tests to see if supplied string is a valid command
+    fn is_match<'a>(&self, cmd: &'a str) -> bool {
+        let cmd = cmd.to_lowercase();
+        // first check to see if there is a match with the name itself
+        if cmd == self.name() {
+            return true;
+        }
+
+        if self.aliases().len() > 0 {
+            for c in self.aliases().iter() {
+                if *c == cmd {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 /// defines a common collection of commands
-#[derive(Debug, Clone)]
-pub struct CmdSet<T: Command + Debug + Hash + Eq>(pub HashSet<T>);
+/// I really don't like how this is made. It is super messy
+/// and in a few months I'd probably look at this and be like
+/// WTF... Essentially this struct holds a list of commands, but the
+/// objects contained are dynamic, but they all inherit the Commands trait
+/// Essentially I have heap allocated Vector that holds trait objects, and the
+/// `CmdSet::get()` method uses a messy logic flow to extract the appropriate cmd
+/// from the user input... probably need to work on this eventually and rework it.
+#[derive(Debug)]
+pub struct CmdSet {
+    /// holds a list of valid commands in set
+    pub cmds: Vec<Box<dyn Command + Send>>,
+}
+
+impl CmdSet {
+    /// create a new command set based on appropriate structs that implement Command Trait
+    pub fn new(cmds: Vec<Box<dyn Command + Send>>) -> Self {
+        Self { cmds: cmds }
+    }
+
+    /// check to see if command exists within CmdSet
+    /// and returns the dyn Command that it matches with
+    /// this is really *fucking messy*
+    pub fn get(&mut self, cmd_string: String) -> Option<&mut (dyn Command + Send)> {
+        let mut cntr = 0;
+        for cmd in self.cmds.iter_mut() {
+            if cmd.is_match(&cmd_string) {
+                break;
+            }
+            cntr += 1;
+        }
+
+        if let Some(cmd) = self.cmds.get_mut(cntr) {
+            return Some(&mut **cmd);
+        } else {
+            return None;
+        }
+    }
+}

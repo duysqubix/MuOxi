@@ -122,7 +122,7 @@ pub async fn process(
             game_loop = false;
         }
         if let Some(response) = get(&mut client).await {
-            let new_state = client.state.clone().execute(&mut client, response);
+            let new_state = client.state.clone().execute(&mut client, response).await?;
             client.state = new_state;
             let state = format!("({:?})", client.state);
             send(&mut client, &state).await?;
