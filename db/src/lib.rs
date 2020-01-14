@@ -9,6 +9,7 @@
 extern crate diesel;
 
 pub mod cache;
+pub mod cache_structures;
 pub mod clients;
 pub mod schema;
 pub mod utils;

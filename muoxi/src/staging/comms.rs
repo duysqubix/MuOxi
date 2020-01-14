@@ -1,7 +1,7 @@
 //! Definitions and declarations of data structures relating comms
 
+use crate::states::ConnStates;
 use db::utils::UID;
-use states::ConnStates;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::pin::Pin;

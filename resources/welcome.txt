@@ -1,0 +1,13 @@
+  __  __        ____       _   ______             _            
+ |  \/  |      / __ \     (_) |  ____|           (_)           
+ | \  / |_   _| |  | |_  ___  | |__   _ __   __ _ _ _ __   ___ 
+ | |\/| | | | | |  | \ \/ / | |  __| | '_ \ / _` | | '_ \ / _ \
+ | |  | | |_| | |__| |>  <| | | |____| | | | (_| | | | | |  __/
+ |_|  |_|\__,_|\____//_/\_\_| |______|_| |_|\__, |_|_| |_|\___|
+                                             __/ |             
+                                            |___/  
+        Mud Development platform written in Rust by Duan Uys
+          A bout of inspiration can blossom into an empire.
+                      January 14, 2020
+
+Login with existing account name or enter `new`

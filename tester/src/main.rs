@@ -1,12 +1,15 @@
 #![allow(unused_imports, dead_code, unused_variables)]
 use db;
 use db::cache;
+use db::cache_structures::socket::CacheSocket;
+use db::cache_structures::Cachable;
 use redis::{Commands, Connection, FromRedisValue, Value};
 use serde::{Deserialize, Serialize};
+
 use serde_json::Result as serdeResult;
-use states;
 use std::collections::HashMap;
 use std::error::Error;
+use std::thread;
 use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,35 +36,45 @@ struct Person {
 // }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    //************************** PostgreSQL/Desiel*****************
+    //*************************** Cache Read/Write ********************//
 
-    let db = db::DatabaseHandler::connect();
-    let new_client = db::clients::Client {
-        uid: 124,
-        ip: "192.168.0.1".to_string(),
-        port: 8002,
-    };
+    let mut socket = CacheSocket::new();
+    socket.set_ip("192.168.0.1").set_port(8001).dump()?;
+    let ip = socket.get_value::<String>("ip");
+    println!("{:?}", ip);
+    thread::sleep(Duration::from_secs(30));
+    socket = socket.load()?;
+    println!("{}", socket.port);
 
-    let result = db.clients.upsert(&db.handle, &new_client).unwrap();
-    // println!("{:?}", result);
-    let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
-    println!("Deleted {} record", num_deleted.unwrap());
-    let records = db.clients.get_uids(&db.handle, vec![]);
-    for record in records {
-        println!("{:?}", record);
-    }
+    // //************************** PostgreSQL/Desiel*****************
 
-    // this uid does not exist
-    let no_exist = db.clients.get_uid(&db.handle, 0);
-    println!("{:?}", no_exist);
+    // let db = db::DatabaseHandler::connect();
+    // let new_client = db::clients::Client {
+    //     uid: 124,
+    //     ip: "192.168.0.1".to_string(),
+    //     port: 8002,
+    // };
 
-    //******************* Redis Read/Write *********************
-    let mut cache = cache::Cache::new()?;
-    let () = cache.conn.set("my_key", 42)?;
+    // let result = db.clients.upsert(&db.handle, &new_client).unwrap();
+    // // println!("{:?}", result);
+    // let num_deleted = db.clients.remove_uid(&db.handle, 2767763803);
+    // println!("Deleted {} record", num_deleted.unwrap());
+    // let records = db.clients.get_uids(&db.handle, vec![]);
+    // for record in records {
+    //     println!("{:?}", record);
+    // }
 
-    let k: Option<usize> = cache.conn.getset("my_key", 43)?;
+    // // this uid does not exist
+    // let no_exist = db.clients.get_uid(&db.handle, 0);
+    // println!("{:?}", no_exist);
 
-    println!("{:?}", k);
+    // //******************* Redis Read/Write *********************
+    // let mut cache = cache::Cache::new()?;
+    // let () = cache.conn.set("my_key", 42)?;
+
+    // let k: Option<usize> = cache.conn.getset("my_key", 43)?;
+
+    // println!("{:?}", k);
 
     // println!("{:?}", k);
     // let client = redis::Client::open("redis://127.0.0.1")?;
