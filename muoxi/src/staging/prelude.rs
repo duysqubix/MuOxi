@@ -6,10 +6,12 @@
 //! * Roles
 //!
 use crate::comms::Client;
+use async_trait::async_trait;
 use std::fmt::Debug;
-use std::marker::Send;
+use std::marker::{Send, Sync};
 use tokio::sync::mpsc;
 use tokio_util::codec::LinesCodecError;
+
 /// alias for sending channel
 pub type Tx = mpsc::UnboundedSender<String>;
 
@@ -29,7 +31,8 @@ pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
 pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
 
 /// defines a command trait
-pub trait Command: Debug {
+#[async_trait]
+pub trait Command: Debug + Sync {
     /// name of command
     fn name(&self) -> &str;
 
@@ -38,7 +41,7 @@ pub trait Command: Debug {
 
     /// execute the actual command but only directs commands to game_server,
     /// will err if client state is not in playing
-    fn execute_cmd(&self, game_server: &mut Client) -> CommandResult<()>;
+    async fn execute_cmd(&self, game_server: &mut Client) -> CommandResult<()>;
 
     /// tests to see if supplied string is a valid command
     fn is_match<'a>(&self, cmd: &'a str) -> bool {

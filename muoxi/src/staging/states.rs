@@ -40,8 +40,10 @@ impl ConnStates {
                 // retrieve cmd struct based on input
                 if let Some(valid_cmd) = cmd {
                     // command is valid continue
-                    let msg = format!("{:?}", valid_cmd);
+                    let msg = format!("Command recognized: {:?}", valid_cmd.name());
                     send(&mut client, &msg).await?;
+
+                    valid_cmd.execute_cmd(&mut client).await.unwrap();
                 } else {
                     send(&mut client, "Huh?").await?;
                 }

@@ -6,8 +6,11 @@
 
 use crate::comms::Client;
 use crate::prelude::{CmdSet, Command, CommandResult};
+use crate::send;
 use std::cmp::{Eq, PartialEq};
 use std::hash::Hash;
+use async_trait::async_trait;
+
 
 ////*********************Proxy Staging Server Commands*************//
 /// the command of 'new' to create a new account
@@ -15,6 +18,8 @@ pub mod proxy_commands {
     use super::*;
     #[derive(Debug, Clone, Hash, Eq, PartialEq)]
     pub struct CmdProxyNew;
+
+#[async_trait]
     impl Command for CmdProxyNew {
         fn name(&self) -> &str {
             "new"
@@ -24,7 +29,9 @@ pub mod proxy_commands {
             vec!["n"]
         }
 
-        fn execute_cmd(&self, client: &mut Client) -> CommandResult<()> {
+        async fn execute_cmd(&self, mut client: &mut Client) -> CommandResult<()> {
+            let msg = format!("Executing the command: {:?}", self);
+            send(&mut client, &msg).await.unwrap();
             Ok(())
         }
     }
@@ -32,6 +39,8 @@ pub mod proxy_commands {
     /// command to connect to existing account
     #[derive(Debug, Clone, Hash, Eq, PartialEq)]
     pub struct CmdProxyAccount;
+    
+    #[async_trait]
     impl Command for CmdProxyAccount {
         fn name(&self) -> &str {
             "account"
@@ -41,13 +50,13 @@ pub mod proxy_commands {
             vec!["acc"]
         }
 
-        fn execute_cmd(&self, client: &mut Client) -> CommandResult<()> {
+        async fn execute_cmd(&self, client: &mut Client) -> CommandResult<()> {
             Ok(())
         }
     }
 }
 
-mod GameCommands {
+mod game_commands {
     //
     use super::*;
 }
