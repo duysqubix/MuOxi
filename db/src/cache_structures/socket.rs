@@ -6,9 +6,10 @@
 use crate::cache::Cache;
 use crate::cache_structures::Cachable;
 use crate::utils::{gen_uid, UID};
-use redis::{Commands, Connection, RedisResult};
+use redis::{Commands, Connection, RedisResult, ToRedisArgs};
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::string::ToString;
 
 /// Template structure to for raw socket
 /// information
@@ -71,6 +72,17 @@ impl<'a> CacheSocket {
     pub fn set_port(&mut self, port: u16) -> &mut Self {
         self.port = port;
         self
+    }
+
+    /// set key and value
+    pub fn set_value<F: ToRedisArgs + ToString, V: ToRedisArgs + ToString>(
+        &mut self,
+        field: F,
+        value: V,
+    ) -> RedisResult<()> {
+        let tag = self.create_tag(field.to_string().as_str(), &value);
+        self.conn.set(tag.0, tag.1)?;
+        Ok(())
     }
 
     /// retrieve a value from field of struct, if it does not exist, will return None

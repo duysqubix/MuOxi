@@ -52,7 +52,7 @@ pub trait Cachable {
 
     /// Create tag for redis consumption in the format of
     /// `(Name:uid:field, value)`
-    fn create_tag<'a, T: ToRedisArgs + ToString + Clone>(
+    fn create_tag<'a, T: ToRedisArgs + ToString>(
         &self,
         field_name: &'a str,
         field_value: &'a T,

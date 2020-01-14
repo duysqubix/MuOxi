@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 //!
-//! Holds the different connection states
+//! Holds the different connection states for connected clients
 //!
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ConnStates {
     AwaitingName,
     AwaitingPassword,
@@ -13,12 +13,5 @@ pub enum ConnStates {
     ConfirmNewPassword,
     MainMenu,
     Playing,
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+    Quit,
 }

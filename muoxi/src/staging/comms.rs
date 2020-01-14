@@ -28,26 +28,6 @@ pub enum Message {
     OnRx(String),
 }
 
-/// struct holding client account information
-#[derive(Debug)]
-pub struct ClientAccount {
-    /// name of client account
-    pub name: String,
-
-    /// number of characters associated with account
-    pub ncharacters: u32,
-}
-
-impl ClientAccount {
-    /// creates new instance of account
-    pub fn new(name: String) -> Self {
-        Self {
-            name: name,
-            ncharacters: 0,
-        }
-    }
-}
-
 /// Wrapper around connected socket, this is non-persistent data and only valid
 /// within the main `process`.
 #[derive(Debug)]
@@ -116,9 +96,6 @@ pub struct Comms(pub SocketAddr, pub Tx);
 pub struct Server {
     /// Holds information regarding connected clients
     pub clients: HashMap<UID, Comms>,
-
-    /// Holds account information for each client
-    pub accounts: HashMap<UID, ClientAccount>,
 }
 
 impl Server {
@@ -126,7 +103,6 @@ impl Server {
     pub fn new() -> Self {
         Self {
             clients: HashMap::new(),
-            accounts: HashMap::new(),
         }
     }
 
