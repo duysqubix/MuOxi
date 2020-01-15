@@ -77,14 +77,42 @@ pub trait Command: Debug + Sync {
     }
 }
 
-/// defines a common collection of commands
-/// I really don't like how this is made. It is super messy
-/// and in a few months I'd probably look at this and be like
-/// WTF... Essentially this struct holds a list of commands, but the
-/// objects contained are dynamic, but they all inherit the Commands trait
-/// Essentially I have heap allocated Vector that holds trait objects, and the
-/// `CmdSet::get()` method uses a messy logic flow to extract the appropriate cmd
-/// from the user input... probably need to work on this eventually and rework it.
+/// Defines a common collection of commands
+///
+/// The current set up for this logic is that CmdSet
+/// is a vector of mutable references to *trait objects*
+/// meaning that all commands and their nature must be defined
+/// within the Command trait, defining other data associated with
+/// the struct of the Command is futile as the compiler will ambiguous
+/// to the actual object the trait is attached too. For example:
+///
+/// ### Example
+/// ```rust,ignore
+/// struct CmdLook
+/// impl CmdLook{
+///     fn method(){
+///         println!("Hello from object specific method");
+///     }
+/// }
+/// impl Command for CmdLoop{
+///     fn name() -> str{
+///         "look"
+///     }
+///     ...
+/// }
+///
+/// let cmdlook = CmdLook{other: 1};
+/// let cmdset = cmdset![cmdlook];
+/// let cmd = cmdset.get("look").unwrap();
+///
+/// cmd.name(); //valid because this method is defined in trait
+/// cmd.method() // invalid! Method returns object specific method which is invisible.
+/// ```
+///
+/// The main take away from this, is that Commands should run and be defined all
+/// within the Trait, creating a unit struct is just to give the Command a name.
+///
+
 #[derive(Debug)]
 pub struct CmdSet {
     /// holds a list of valid commands in set

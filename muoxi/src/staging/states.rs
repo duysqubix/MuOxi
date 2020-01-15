@@ -24,8 +24,12 @@ pub enum ConnStates {
 }
 
 impl ConnStates {
-    /// execute logic based on current connstate, return
-    /// a connState to replace original, can even be same one...
+    ///
+    /// Validates and executes valid commands depending on Connection state
+    /// Once client moves to `Playing` state, the list of commands available
+    /// will shift from ConnState dependency to game state dependency such as
+    /// (roles, level, class, etc..)
+    ///
     pub async fn execute(
         self,
         mut client: &mut Client,
@@ -33,12 +37,11 @@ impl ConnStates {
     ) -> LinesCodecResult<Self> {
         match self {
             ConnStates::AwaitingName => {
-                // construct valid commands for this state
-                // cmdset![CmdProxyNew, CmdProxyAccount]
-                // let mut cmdset =
-                //     CmdSet::new(vec![Box::new(CmdProxyNew), Box::new(CmdProxyAccount)]);
                 let mut cmdset = cmdset![CmdProxyNew, CmdProxyAccount];
 
+                // leaving this explicit type for documentation
+                // When retrieving a cmd from response, it will return
+                // a `&mut (dyn Command + Send)`
                 let cmd: Option<&mut (dyn Command + Send)> = cmdset.get(response);
                 // retrieve cmd struct based on input
                 if let Some(valid_cmd) = cmd {
