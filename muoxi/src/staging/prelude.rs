@@ -127,7 +127,7 @@ impl CmdSet {
 
     /// check to see if command exists within CmdSet
     /// and returns the dyn Command that it matches with
-    /// this is really *fucking messy*
+    /// this is still *fucking confusing*
     pub fn get(&mut self, cmd_string: String) -> Option<&mut (dyn Command + Send)> {
         let mut cntr = 0;
         for cmd in self.cmds.iter_mut() {

@@ -2,6 +2,7 @@
 //!
 //! Holds the different connection states for connected clients
 //!
+use crate::cmds::do_cmd;
 use crate::cmds::proxy_commands::*;
 use crate::cmdset;
 use crate::comms::Client;
@@ -43,20 +44,15 @@ impl ConnStates {
                 // When retrieving a cmd from response, it will return
                 // a `&mut (dyn Command + Send)`
                 let cmd: Option<&mut (dyn Command + Send)> = cmdset.get(response);
-                // retrieve cmd struct based on input
-                if let Some(valid_cmd) = cmd {
-                    // command is valid continue
-                    let msg = format!("Command recognized: {:?}", valid_cmd.name());
-                    send(&mut client, &msg).await?;
+                let errmsg = format!("Error attempting to executing cmd: {:?}", cmd);
 
-                    valid_cmd.execute_cmd(&mut client).await.unwrap();
-                } else {
-                    send(
-                        &mut client,
-                        "Login with existing account name using `account [name]` or enter `new`",
-                    )
-                    .await?;
-                }
+                do_cmd(
+                    &mut client,
+                    cmd,
+                    "Login with existing account name using `account [name] or enter `new`",
+                )
+                .await
+                .expect(&errmsg);
                 Ok(ConnStates::AwaitingName)
             }
             _ => Ok(ConnStates::Quit),

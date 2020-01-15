@@ -11,6 +11,19 @@ use async_trait::async_trait;
 use std::cmp::{Eq, PartialEq};
 use std::hash::Hash;
 
+pub async fn do_cmd<'a>(
+    mut client: &mut Client,
+    cmd: Option<&mut (dyn Command + Send)>,
+    errmsg: &'a str,
+) -> CommandResult<()> {
+    if let Some(cmd) = cmd {
+        cmd.execute_cmd(client).await?;
+    } else {
+        send(&mut client, errmsg).await.unwrap();
+    }
+    Ok(())
+}
+
 ////*********************Proxy Staging Server Commands*************//
 /// the command of 'new' to create a new account
 pub mod proxy_commands {
@@ -29,8 +42,6 @@ pub mod proxy_commands {
         }
 
         async fn execute_cmd(&self, mut client: &mut Client) -> CommandResult<()> {
-            let msg = format!("Executing the command: {:?}", self);
-            send(&mut client, &msg).await.unwrap();
             Ok(())
         }
     }
