@@ -3,6 +3,7 @@
 //! Holds the different connection states for connected clients
 //!
 use crate::cmds::proxy_commands::*;
+use crate::cmdset;
 use crate::comms::Client;
 use crate::prelude::{CmdSet, Command, LinesCodecResult};
 use crate::send;
@@ -33,8 +34,10 @@ impl ConnStates {
         match self {
             ConnStates::AwaitingName => {
                 // construct valid commands for this state
-                let mut cmdset =
-                    CmdSet::new(vec![Box::new(CmdProxyNew), Box::new(CmdProxyAccount)]);
+                // cmdset![CmdProxyNew, CmdProxyAccount]
+                // let mut cmdset =
+                //     CmdSet::new(vec![Box::new(CmdProxyNew), Box::new(CmdProxyAccount)]);
+                let mut cmdset = cmdset![CmdProxyNew, CmdProxyAccount];
 
                 let cmd: Option<&mut (dyn Command + Send)> = cmdset.get(response);
                 // retrieve cmd struct based on input
@@ -45,7 +48,11 @@ impl ConnStates {
 
                     valid_cmd.execute_cmd(&mut client).await.unwrap();
                 } else {
-                    send(&mut client, "Huh?").await?;
+                    send(
+                        &mut client,
+                        "Login with existing account name using `account [name]` or enter `new`",
+                    )
+                    .await?;
                 }
                 Ok(ConnStates::AwaitingName)
             }

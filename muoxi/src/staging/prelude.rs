@@ -12,6 +12,21 @@ use std::marker::{Send, Sync};
 use tokio::sync::mpsc;
 use tokio_util::codec::LinesCodecError;
 
+#[macro_export]
+/// an easier way to create a command set from
+/// valid `impl Command` objects
+macro_rules! cmdset {
+    ($($cmd: expr),+) => {
+        {
+            let mut cmds: Vec<Box<dyn Command+Send>> = Vec::new();
+            $(
+                cmds.push(Box::new($cmd));
+            )*
+            CmdSet::new(cmds)
+        }
+    };
+}
+
 /// alias for sending channel
 pub type Tx = mpsc::UnboundedSender<String>;
 
