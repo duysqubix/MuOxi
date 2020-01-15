@@ -16,7 +16,6 @@
 //! })?;
 //! ```
 
-use db::clients::Client;
 use db::utils::{json_to_object, UID};
 use db::DatabaseHandler;
 use hotwatch::{Event, Hotwatch};
@@ -28,7 +27,10 @@ use std::thread;
 use std::time::Duration;
 
 /// static path to place of clients json file
-pub static CLIENTS: &'static str = "json/clients.json";
+pub static ACCOUNTS: &'static str = "json/accounts.json";
+
+/// static path to place of clients json file
+pub static CHARACTERS: &'static str = "json/characters.json";
 
 /// Different `.json` storage files that need to be monitored
 #[derive(Debug, Clone)]
@@ -38,10 +40,7 @@ pub enum JsonFile {
     Accounts,
 
     /// holds all character information
-    Players,
-
-    /// holds raw socket representation of connected clients
-    Clients,
+    Characters,
 }
 
 /// simple wrapper to read from json file and return serde_json::Value
@@ -58,30 +57,28 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
 
     // set db depending on file
     match file {
-        JsonFile::Clients => {
-            let clients =
-                read_file("config/clients.json").expect("Couldn't read from accounts.json");
+        JsonFile::Accounts => {
+            // let clients =
+            //     read_file("config/clients.json").expect("Couldn't read from accounts.json");
 
-            let clients: HashMap<UID, Client> = json_to_object(clients).unwrap();
-            // let client_vec: ClientVector = ClientHashMap(clients.clone()).into();
-            for (_uid, client) in clients {
-                db.clients.upsert(&db.handle, &client)?;
-            }
+            // let clients: HashMap<UID, Client> = json_to_object(clients).unwrap();
+            // // let client_vec: ClientVector = ClientHashMap(clients.clone()).into();
+            // for (_uid, client) in clients {
+            //     db.clients.upsert(&db.handle, &client)?;
+            // }
 
-            let records = db.clients.get_uids(&db.handle, vec![])?;
-            for client in records.0.iter() {
-                println!(
-                    "Found client with UID: {}...{}: {}",
-                    client.uid, client.ip, client.port
-                );
-            }
-            println!("");
+            // let records = db.clients.get_uids(&db.handle, vec![])?;
+            // for client in records.0.iter() {
+            //     println!(
+            //         "Found client with UID: {}...{}: {}",
+            //         client.uid, client.ip, client.port
+            //     );
+            // }
+            // println!("");
         }
-        JsonFile::Players => {
+        JsonFile::Characters => {
             //
         }
-
-        JsonFile::Accounts => {}
     }
 
     Ok(())
@@ -94,13 +91,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     watcher.watch("config/people.json", move |event| {
         if let Event::Write(_path) = event {
-            trigger_upload(JsonFile::Players).unwrap();
+            trigger_upload(JsonFile::Characters).unwrap();
         }
     })?;
 
-    watcher.watch(CLIENTS, move |event| {
+    watcher.watch(ACCOUNTS, move |event| {
         if let Event::Write(_path) = event {
-            trigger_upload(JsonFile::Clients).unwrap();
+            trigger_upload(JsonFile::Accounts).unwrap();
         }
     })?;
 

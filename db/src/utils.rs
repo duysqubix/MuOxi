@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![deny(missing_docs)]
 
 //!
 //! Holds collections of regularly used functions that relate to database usage

@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //!
 //! Wrapper around redis server to easy manipulate cached data
 //!
