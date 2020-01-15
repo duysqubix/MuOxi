@@ -264,6 +264,41 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>)]</span>
 
@@ -275,28 +310,29 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!</span>
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">cmds</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">comms</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">copyover</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">prelude</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">states</span>;
 
-<span class="kw">use</span> <span class="ident">comms</span>::{<span class="ident">Client</span>, <span class="ident">ClientAccount</span>, <span class="ident">Comms</span>, <span class="ident">Server</span>};
-<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">utils</span>::<span class="ident">gen_uid</span>;
-<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">DatabaseHandler</span>;
+<span class="kw">use</span> <span class="ident">comms</span>::{<span class="ident">Client</span>, <span class="ident">Comms</span>, <span class="ident">Server</span>};
+<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">utils</span>::{<span class="ident">gen_uid</span>, <span class="ident">UID</span>};
+<span class="comment">// use db::DatabaseHandler;</span>
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">prelude</span>::{<span class="ident">LinesCodecResult</span>, <span class="ident">GAME_ADDR</span>, <span class="ident">PROXY_ADDR</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">states</span>::<span class="ident">ConnStates</span>;
+<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">cache_structures</span>::<span class="ident">socket</span>::<span class="ident">CacheSocket</span>;
+<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">cache_structures</span>::<span class="ident">Cachable</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">future</span>::<span class="ident">try_join</span>;
 <span class="kw">use</span> <span class="ident">futures</span>::<span class="ident">SinkExt</span>;
-<span class="kw">use</span> <span class="ident">states</span>::<span class="ident">ConnStates</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">env</span>, <span class="ident">str</span>};
+<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">fs</span>::<span class="ident">File</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">net</span>::{<span class="ident">TcpListener</span>, <span class="ident">TcpStream</span>};
+<span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">prelude</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">stream</span>::<span class="ident">StreamExt</span>;
 <span class="kw">use</span> <span class="ident">tokio</span>::<span class="ident">sync</span>::<span class="ident">Mutex</span>;
-<span class="kw">use</span> <span class="ident">tokio_util</span>::<span class="ident">codec</span>::<span class="ident">LinesCodecError</span>;
-
-<span class="doccomment">/// Current listening port of the MuOxi game engine</span>
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GAME_ADDR</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;127.0.0.1:4567&quot;</span>;
-
-<span class="doccomment">/// Current listening port of the staging proxy server</span>
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PROXY_ADDR</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;127.0.0.1:8000&quot;</span>;
 
 <span class="doccomment">/// Friendly async wrapper to sending messages to client object</span>
 <span class="doccomment">///</span>
@@ -304,23 +340,46 @@
 <span class="doccomment">/// let msg = &quot;Hello, and welcome to hell&quot;;</span>
 <span class="doccomment">/// send(&amp;client, msg).await?;</span>
 <span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Client</span>, <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LinesCodecError</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Client</span>, <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LinesCodecResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="ident">client</span>.<span class="ident">lines</span>.<span class="ident">send</span>(<span class="ident">msg</span>.<span class="ident">into</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Friendly async wrapper around recieving message from client</span>
-<span class="doccomment">/// Instead of panicing on wrong error, it will return a client disconnect message</span>
+<span class="doccomment">/// Instead of panicing on wrong error, it will return an Option&lt;String&gt;</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// ```rust</span>
-<span class="doccomment">/// let client_response = get(&amp;client).await;</span>
-<span class="doccomment">/// println!(&quot;Recieved from client: {}&quot;, client_response);</span>
+<span class="doccomment">/// let response = get(&amp;mut client).await;</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// if let Some(resp) = response{</span>
+<span class="doccomment">///     println!(&quot;Recieved from client: {}&quot;, resp)</span>
+<span class="doccomment">/// }else{</span>
+<span class="doccomment">/// println!(&quot;Recieved a None, most likely client has prematurely disconnected&quot;);</span>
+<span class="doccomment">///}</span>
 <span class="doccomment">/// ```</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Client</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">String</span> {
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(<span class="ident">v</span>)) <span class="op">=</span> <span class="ident">client</span>.<span class="ident">lines</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-        <span class="ident">v</span>
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Client</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="ident">client</span>.<span class="ident">lines</span>.<span class="ident">next</span>().<span class="kw">await</span>.<span class="ident">map_or</span>(<span class="prelude-val">None</span>, <span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span>.<span class="ident">ok</span>())
+}
+
+<span class="doccomment">/// display welcome screen</span>
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">display_welcome</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(<span class="ident">client</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw-2">mut</span> <span class="ident">Client</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">LinesCodecResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">File</span>::<span class="ident">open</span>(<span class="string">&quot;resources/welcome.txt&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">contents</span> <span class="op">=</span> <span class="ident">String</span>::<span class="ident">new</span>();
+    <span class="ident">file</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">contents</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="ident">client</span>.<span class="ident">lines</span>.<span class="ident">send</span>(<span class="ident">contents</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="doccomment">/// clean up client on disconnect or timeout</span>
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">client_cleanup</span>(<span class="ident">uid</span>: <span class="ident">UID</span>, <span class="ident">server</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Server</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">cache</span>: <span class="ident">CacheSocket</span>) {
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
+    <span class="ident">server</span>.<span class="ident">clients</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">uid</span>);
+
+    <span class="comment">// remove client from database</span>
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">destruct</span>() {
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Remove client with uid: {}&quot;</span>, <span class="ident">uid</span>);
     } <span class="kw">else</span> {
-        <span class="string">&quot;...Client Disconnected...&quot;</span>.<span class="ident">to_string</span>()
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Unable to remove client: {} from redis.&quot;</span>, <span class="ident">uid</span>);
     }
 }
 
@@ -328,109 +387,124 @@
 <span class="doccomment">/// Main processing piece of logic, once a connection is established to client</span>
 <span class="doccomment">/// the entire lifetime of the connected client is handled within this function.</span>
 <span class="doccomment">///</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">process</span>(<span class="ident">server</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Server</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">stream</span>: <span class="ident">TcpStream</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="ident">DatabaseHandler</span>::<span class="ident">connect</span>();
-    <span class="kw">let</span> <span class="ident">uid</span> <span class="op">=</span> <span class="ident">gen_uid</span>();
-    <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">peer_addr</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_client</span> <span class="op">=</span> <span class="ident">Client</span>::<span class="ident">new</span>(<span class="ident">uid</span>, <span class="ident">server</span>.<span class="ident">clone</span>(), <span class="ident">stream</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">process</span>(
+    <span class="ident">server</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Server</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">stream</span>: <span class="ident">TcpStream</span>,
+    <span class="kw-2">mut</span> <span class="ident">cache</span>: <span class="ident">CacheSocket</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="comment">// could use refactoring, but UID is important that all structures</span>
+    <span class="comment">// have know about this UID in Server, Client, and CacheSocket</span>
+    <span class="comment">// So it attempts to retrieve UID from redis, and use that as the</span>
+    <span class="comment">// primary source for UID, if there is an error, it will attempt to</span>
+    <span class="comment">// reassign UID and store to redis - this may be redundant, I am not</span>
+    <span class="comment">// quite sure how I should handle if there is an error retrieving</span>
+    <span class="comment">// a uid</span>
+    <span class="kw">let</span> <span class="ident">uid</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get_value</span>::<span class="op">&lt;</span><span class="ident">UID</span><span class="op">&gt;</span>(<span class="string">&quot;uid&quot;</span>).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Error retrieving UID from redis, reassigning UID&quot;</span>);
+        <span class="kw">let</span> <span class="ident">new_uid</span> <span class="op">=</span> <span class="ident">gen_uid</span>();
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">set_value</span>(<span class="string">&quot;uid&quot;</span>, <span class="ident">new_uid</span>) {
+            <span class="macro">println</span><span class="macro">!</span>(
+                <span class="string">&quot;{}\nUnable to set key/value pair in redis uid: {}&quot;</span>,
+                <span class="ident">e</span>, <span class="ident">new_uid</span>
+            );
+        };
+        <span class="ident">new_uid</span>
+    });
 
-    <span class="comment">// create object for db</span>
-    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">addr</span>.<span class="ident">ip</span>());
-    <span class="macro">println</span><span class="macro">!</span>(
-        <span class="string">&quot;ip: {}, port: {}, portcast: {}&quot;</span>,
-        <span class="ident">ip</span>,
-        <span class="ident">addr</span>.<span class="ident">port</span>(),
-        <span class="ident">addr</span>.<span class="ident">port</span>() <span class="kw">as</span> <span class="ident">i32</span>
-    );
-    <span class="kw">let</span> <span class="ident">db_client</span> <span class="op">=</span> <span class="ident">db</span>::<span class="ident">clients</span>::<span class="ident">Client</span>::<span class="ident">new</span>(<span class="ident">uid</span>, <span class="ident">ip</span>, <span class="ident">addr</span>.<span class="ident">port</span>() <span class="kw">as</span> <span class="ident">i32</span>);
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">db</span>
-        .<span class="ident">clients</span>
-        .<span class="ident">upsert</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="kw-2">&amp;</span><span class="ident">db_client</span>)
-        .<span class="ident">expect</span>(<span class="string">&quot;Couldn&#39;t insert new client into database&quot;</span>);
+    <span class="comment">// create client connec</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">Client</span>::<span class="ident">new</span>(<span class="ident">uid</span>, <span class="ident">server</span>.<span class="ident">clone</span>(), <span class="ident">stream</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">//sanity check, send db entry to client</span>
-    <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">get_uid</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="ident">uid</span>)<span class="question-mark">?</span>);
+    <span class="ident">client</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">ConnStates</span>::<span class="ident">AwaitingName</span>;
 
-    <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="ident">record</span>.<span class="ident">as_str</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="comment">// send intro message</span>
-    <span class="comment">// name -&gt; try to find account</span>
-    <span class="comment">// new -&gt; create new account</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_process</span> <span class="op">=</span> <span class="bool-val">true</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">acct_error_counter</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">while</span> <span class="ident">new_process</span> {
-        <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="string">&quot;Please enter account `name` or type `new`&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>).<span class="kw">await</span>;
-        <span class="kw">match</span> <span class="ident">response</span>.<span class="ident">to_lowercase</span>().<span class="ident">as_str</span>() {
-            <span class="string">&quot;new&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">greetings</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(
-                    <span class="string">&quot;{}\r\n{}\r\n&quot;</span>,
-                    <span class="string">&quot;Puff the Magic Dragon says, Welcome to MuOxi, enjoy your stay. :)&quot;</span>,
-                    <span class="string">&quot;What be your name?&quot;</span>
-                );
-                <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="ident">greetings</span>.<span class="ident">as_str</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">new_name</span> <span class="op">=</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>).<span class="kw">await</span>;
+    <span class="ident">display_welcome</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">client</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">game_loop</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="kw">while</span> <span class="ident">game_loop</span> {
+        <span class="kw">if</span> <span class="ident">client</span>.<span class="ident">state</span> <span class="op">=</span><span class="op">=</span> <span class="ident">ConnStates</span>::<span class="ident">Quit</span> {
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Client is disconnecting&quot;</span>);
+            <span class="ident">game_loop</span> <span class="op">=</span> <span class="bool-val">false</span>;
+        }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">response</span>) <span class="op">=</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">client</span>).<span class="kw">await</span> {
+            <span class="kw">let</span> <span class="ident">new_state</span> <span class="op">=</span> <span class="ident">client</span>.<span class="ident">state</span>.<span class="ident">clone</span>().<span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">client</span>, <span class="ident">response</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="ident">client</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">new_state</span>;
+            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;({:?})&quot;</span>, <span class="ident">client</span>.<span class="ident">state</span>);
+            <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">client</span>, <span class="kw-2">&amp;</span><span class="ident">state</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="comment">// match client.state {</span>
+        <span class="comment">//     ConnStates::AwaitingName =&gt; {</span>
+        <span class="comment">//         // in awaiting name stage, do the following</span>
+        <span class="comment">//         // 1) check if input is new</span>
+        <span class="comment">//         // 1a) if new -&gt; create new account (change state)</span>
+        <span class="comment">//         // 2) if not, check if account exists</span>
+        <span class="comment">//         // 3) if not, return errmsg and start from beginning</span>
+        <span class="comment">//         // 4) if account exists, ask for password (change state)</span>
+        <span class="comment">//     }</span>
+        <span class="comment">//     _ =&gt; (),</span>
+        <span class="comment">// }</span>
 
-                <span class="ident">new_client</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">ConnStates</span>::<span class="ident">AwaitingName</span>;
-                <span class="kw">let</span> <span class="ident">new_acct</span> <span class="op">=</span> <span class="ident">ClientAccount</span>::<span class="ident">new</span>(<span class="ident">new_name</span>.<span class="ident">clone</span>());
-
-                {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
-                    <span class="ident">server</span>.<span class="ident">accounts</span>.<span class="ident">insert</span>(<span class="ident">uid</span>.<span class="ident">clone</span>(), <span class="ident">new_acct</span>);
-                }
-
-                <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Welcome, {}! Glad to have you on board.&quot;</span>, <span class="ident">new_name</span>);
-
-                <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="ident">r</span>.<span class="ident">as_str</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="ident">new_process</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                <span class="kw">continue</span>;
-            }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="ident">acct_error_counter</span> <span class="op">=</span><span class="op">=</span> <span class="number">3</span> {
-                    <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="string">&quot;Max attempts reached.. disconnecting\r\n&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-                    <span class="ident">new_process</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                    <span class="kw">continue</span>;
-                }
-                <span class="comment">// println!(&quot;Attempting to find client...&quot;);</span>
-                <span class="kw">let</span> <span class="ident">err_msg</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;Couldn&#39;t find account name with `{}`\r\n&quot;</span>, <span class="ident">response</span>);
-                <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="ident">err_msg</span>.<span class="ident">as_str</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="ident">acct_error_counter</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-            }
+        <span class="comment">// for testing use server to use id</span>
+        <span class="comment">// valid reponse</span>
+        } <span class="kw">else</span> {
+            <span class="comment">// most likely disconnected, cleanup</span>
+            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Client dropped connection. Removing...&quot;</span>);
+            <span class="ident">game_loop</span> <span class="op">=</span> <span class="bool-val">false</span>;
         }
     }
 
-    {
-        <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
+    <span class="comment">// let mut new_process = true;</span>
+    <span class="comment">// let mut acct_error_counter: usize = 0;</span>
+    <span class="comment">// while new_process {</span>
+    <span class="comment">//     let response = get(&amp;mut client).await;</span>
+    <span class="comment">//     println!(&quot;Im here&quot;);</span>
+    <span class="comment">//     match response.to_lowercase().as_str() {</span>
+    <span class="comment">//         &quot;new&quot; =&gt; {</span>
+    <span class="comment">//             let greetings = format!(</span>
+    <span class="comment">//                 &quot;{}\r\n{}\r\n&quot;,</span>
+    <span class="comment">//                 &quot;Puff the Magic Dragon says, Welcome to MuOxi, enjoy your stay. :)&quot;,</span>
+    <span class="comment">//                 &quot;What be your name?&quot;</span>
+    <span class="comment">//             );</span>
+    <span class="comment">//             send(&amp;mut client, greetings.as_str()).await?;</span>
+    <span class="comment">//             let new_name = get(&amp;mut client).await;</span>
 
-        <span class="kw">for</span> (<span class="ident">uid</span>, <span class="ident">acct</span>) <span class="kw">in</span> <span class="ident">server</span>.<span class="ident">accounts</span>.<span class="ident">iter</span>() {
-            <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Name: {}&quot;</span>, <span class="ident">acct</span>.<span class="ident">name</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">comms</span>) <span class="op">=</span> <span class="ident">server</span>.<span class="ident">clients</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">uid</span>.<span class="ident">clone</span>()) {
-                <span class="kw">let</span> <span class="ident">Comms</span>(<span class="ident">socket</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">comms</span>;
-                <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(
-                    <span class="string">&quot;Hello, {}. You belong to port: {}/ {}&quot;</span>,
-                    <span class="ident">acct</span>.<span class="ident">name</span>, <span class="ident">socket</span>, <span class="ident">uid</span>
-                );
-                <span class="ident">send</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">new_client</span>, <span class="ident">msg</span>.<span class="ident">as_str</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-            }
-        }
-    }
+    <span class="comment">//             // {</span>
+    <span class="comment">//             //     let server = server.lock().await;</span>
+    <span class="comment">//             // }</span>
 
-    <span class="comment">// let name = new_client.lines.next().await;</span>
+    <span class="comment">//             let r = format!(&quot;Welcome, {}! Glad to have you on board.&quot;, new_name);</span>
+
+    <span class="comment">//             send(&amp;mut client, r.as_str()).await?;</span>
+    <span class="comment">//             new_process = false;</span>
+    <span class="comment">//             continue;</span>
+    <span class="comment">//         }</span>
+    <span class="comment">//         _ =&gt; {</span>
+    <span class="comment">//             if acct_error_counter == 3 {</span>
+    <span class="comment">//                 send(&amp;mut client, &quot;Max attempts reached.. disconnecting\r\n&quot;).await?;</span>
+    <span class="comment">//                 new_process = false;</span>
+    <span class="comment">//                 continue;</span>
+    <span class="comment">//             }</span>
+    <span class="comment">//             // println!(&quot;Attempting to find client...&quot;);</span>
+    <span class="comment">//             let err_msg = format!(&quot;Couldn&#39;t find account name with `{}`\r\n&quot;, response);</span>
+    <span class="comment">//             send(&amp;mut client, err_msg.as_str()).await?;</span>
+    <span class="comment">//             acct_error_counter += 1;</span>
+    <span class="comment">//         }</span>
+    <span class="comment">//     }</span>
+    <span class="comment">// }</span>
+
+    <span class="comment">// let name = client.lines.next().await;</span>
     <span class="comment">// if let Some(v) = name {</span>
     <span class="comment">//     if let Ok(x) = v {</span>
-    <span class="comment">//         new_client.name = x.clone();</span>
+    <span class="comment">//         client.name = x.clone();</span>
     <span class="comment">//     }</span>
     <span class="comment">// }</span>
 
     <span class="comment">// process clients input until a disconnect happens</span>
-    <span class="comment">// while let Some(result) = new_client.next().await {</span>
+    <span class="comment">// while let Some(result) = client.next().await {</span>
     <span class="comment">//     match result {</span>
     <span class="comment">//         // Information coming in from individual client</span>
     <span class="comment">//         Ok(Message::FromClient(msg)) =&gt; {</span>
     <span class="comment">//             let resp = format!(&quot;You say, {}&quot;, msg);</span>
-    <span class="comment">//             new_client.lines.send(resp).await?;</span>
+    <span class="comment">//             client.lines.send(resp).await?;</span>
     <span class="comment">//             {</span>
     <span class="comment">//                 let mut server = server.lock().await;</span>
-    <span class="comment">//                 let msg = format!(&quot;{} says, {}&quot;, new_client.name, msg);</span>
+    <span class="comment">//                 let msg = format!(&quot;{} says, {}&quot;, client.name, msg);</span>
     <span class="comment">//                 server.broadcast(addr, &amp;msg).await;</span>
     <span class="comment">//             }</span>
     <span class="comment">//         }</span>
@@ -438,7 +512,7 @@
     <span class="comment">//         // Information coming in from Clients Rx channel</span>
     <span class="comment">//         Ok(Message::OnRx(msg)) =&gt; {</span>
     <span class="comment">//             // process information coming from other clients</span>
-    <span class="comment">//             new_client.lines.send(msg).await?;</span>
+    <span class="comment">//             client.lines.send(msg).await?;</span>
     <span class="comment">//         }</span>
     <span class="comment">//         // An error has occured</span>
     <span class="comment">//         Err(e) =&gt; {</span>
@@ -450,19 +524,7 @@
     <span class="comment">//     }</span>
     <span class="comment">// }</span>
     <span class="comment">// user disconnecting, remove from server list</span>
-    {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">server</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
-        <span class="ident">server</span>.<span class="ident">clients</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">uid</span>);
-        <span class="ident">server</span>.<span class="ident">accounts</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">uid</span>);
-
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{} has disconnected&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">addr</span>);
-        <span class="ident">server</span>.<span class="ident">broadcast</span>(<span class="ident">addr</span>, <span class="kw-2">&amp;</span><span class="ident">msg</span>).<span class="kw">await</span>;
-
-        <span class="comment">// remove client from database</span>
-        <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">remove_uid</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="ident">uid</span>)<span class="question-mark">?</span>;
-        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Remove client from database&quot;</span>);
-    }
-
+    <span class="ident">client_cleanup</span>(<span class="ident">uid</span>, <span class="kw-2">&amp;</span><span class="ident">server</span>, <span class="ident">cache</span>).<span class="kw">await</span>;
     <span class="prelude-val">Ok</span>(())
 }
 
@@ -480,8 +542,8 @@
 <span class="doccomment">///</span>
 <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">transfer</span>(<span class="kw-2">mut</span> <span class="ident">inbound</span>: <span class="ident">TcpStream</span>, <span class="ident">game_addr</span>: <span class="ident">String</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">outbound</span> <span class="op">=</span> <span class="ident">TcpStream</span>::<span class="ident">connect</span>(<span class="kw-2">&amp;</span><span class="ident">game_addr</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">inbound_addr</span> <span class="op">=</span> <span class="ident">inbound</span>.<span class="ident">peer_addr</span>().<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">outbound_addr</span> <span class="op">=</span> <span class="ident">outbound</span>.<span class="ident">peer_addr</span>().<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">inbound_addr</span> <span class="op">=</span> <span class="ident">inbound</span>.<span class="ident">peer_addr</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">outbound_addr</span> <span class="op">=</span> <span class="ident">outbound</span>.<span class="ident">peer_addr</span>()<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">1024</span>];
 
@@ -490,7 +552,7 @@
         <span class="string">&quot;Proxing {} to {}, msg: {}&quot;</span>,
         <span class="ident">inbound_addr</span>,
         <span class="ident">outbound_addr</span>,
-        <span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">n</span>]).<span class="ident">unwrap</span>()
+        <span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">buf</span>[<span class="number">0</span>..<span class="ident">n</span>])<span class="question-mark">?</span>
     );
 
     <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">ri</span>, <span class="kw-2">mut</span> <span class="ident">wi</span>) <span class="op">=</span> <span class="ident">inbound</span>.<span class="ident">split</span>();
@@ -517,13 +579,21 @@
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">listener</span> <span class="op">=</span> <span class="ident">TcpListener</span>::<span class="ident">bind</span>(<span class="kw-2">&amp;</span><span class="ident">PROXY_ADDR</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>((<span class="ident">inbound</span>, <span class="ident">addr</span>)) <span class="op">=</span> <span class="ident">listener</span>.<span class="ident">accept</span>().<span class="kw">await</span> {
+    <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>((<span class="ident">stream</span>, <span class="ident">addr</span>)) <span class="op">=</span> <span class="ident">listener</span>.<span class="ident">accept</span>().<span class="kw">await</span> {
         <span class="comment">// For each inbound client - step through states and only when</span>
         <span class="comment">// when entering game does it invoke the transfer async function</span>
         <span class="kw">let</span> <span class="ident">server</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="ident">clients</span>);
         <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;New user! on {}&quot;</span>, <span class="ident">addr</span>);
+
+        <span class="comment">// obtain address of client</span>
+        <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">stream</span>.<span class="ident">peer_addr</span>()<span class="question-mark">?</span>;
+
+        <span class="comment">// stores client information in redis and dynamically creates a UID</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache_socket</span> <span class="op">=</span> <span class="ident">CacheSocket</span>::<span class="ident">new</span>();
+        <span class="ident">cache_socket</span>.<span class="ident">set_address</span>(<span class="kw-2">&amp;</span><span class="ident">addr</span>).<span class="ident">dump</span>()<span class="question-mark">?</span>;
+
         <span class="ident">tokio</span>::<span class="ident">spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">process</span>(<span class="ident">server</span>, <span class="ident">inbound</span>).<span class="kw">await</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">process</span>(<span class="ident">server</span>, <span class="ident">stream</span>, <span class="ident">cache_socket</span>).<span class="kw">await</span> {
                 <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;An error occured; error={:?}&quot;</span>, <span class="ident">e</span>);
             }
         });

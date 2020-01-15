@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CacheSocket","Template structure to for raw socket information"]]});

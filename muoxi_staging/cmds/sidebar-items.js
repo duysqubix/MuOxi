@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["do_cmd",""]],"mod":[["game_commands",""],["proxy_commands","the command of 'new' to create a new account"]]});

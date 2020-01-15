@@ -128,16 +128,32 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>, <span class="ident">unused_variables</span>)]</span>
 <span class="kw">use</span> <span class="ident">db</span>;
 <span class="kw">use</span> <span class="ident">db</span>::<span class="ident">cache</span>;
+<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">cache_structures</span>::<span class="ident">socket</span>::<span class="ident">CacheSocket</span>;
+<span class="kw">use</span> <span class="ident">db</span>::<span class="ident">cache_structures</span>::<span class="ident">Cachable</span>;
 <span class="kw">use</span> <span class="ident">redis</span>::{<span class="ident">Commands</span>, <span class="ident">Connection</span>, <span class="ident">FromRedisValue</span>, <span class="ident">Value</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+
 <span class="kw">use</span> <span class="ident">serde_json</span>::<span class="prelude-ty">Result</span> <span class="kw">as</span> <span class="ident">serdeResult</span>;
-<span class="kw">use</span> <span class="ident">states</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">thread</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">time</span>::<span class="ident">Duration</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -164,35 +180,45 @@
 <span class="comment">// }</span>
 
 <span class="kw">fn</span> <span class="ident">main</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="comment">//************************** PostgreSQL/Desiel*****************</span>
+    <span class="comment">//*************************** Cache Read/Write ********************//</span>
 
-    <span class="kw">let</span> <span class="ident">db</span> <span class="op">=</span> <span class="ident">db</span>::<span class="ident">DatabaseHandler</span>::<span class="ident">connect</span>();
-    <span class="kw">let</span> <span class="ident">new_client</span> <span class="op">=</span> <span class="ident">db</span>::<span class="ident">clients</span>::<span class="ident">Client</span> {
-        <span class="ident">uid</span>: <span class="number">124</span>,
-        <span class="ident">ip</span>: <span class="string">&quot;192.168.0.1&quot;</span>.<span class="ident">to_string</span>(),
-        <span class="ident">port</span>: <span class="number">8002</span>,
-    };
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">socket</span> <span class="op">=</span> <span class="ident">CacheSocket</span>::<span class="ident">new</span>();
+    <span class="ident">socket</span>.<span class="ident">set_ip</span>(<span class="string">&quot;192.168.0.1&quot;</span>).<span class="ident">set_port</span>(<span class="number">8001</span>).<span class="ident">dump</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">get_value</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>(<span class="string">&quot;ip&quot;</span>);
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">ip</span>);
+    <span class="ident">thread</span>::<span class="ident">sleep</span>(<span class="ident">Duration</span>::<span class="ident">from_secs</span>(<span class="number">30</span>));
+    <span class="ident">socket</span> <span class="op">=</span> <span class="ident">socket</span>.<span class="ident">load</span>()<span class="question-mark">?</span>;
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">socket</span>.<span class="ident">port</span>);
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">upsert</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="kw-2">&amp;</span><span class="ident">new_client</span>).<span class="ident">unwrap</span>();
-    <span class="comment">// println!(&quot;{:?}&quot;, result);</span>
-    <span class="kw">let</span> <span class="ident">num_deleted</span> <span class="op">=</span> <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">remove_uid</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="number">2767763803</span>);
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Deleted {} record&quot;</span>, <span class="ident">num_deleted</span>.<span class="ident">unwrap</span>());
-    <span class="kw">let</span> <span class="ident">records</span> <span class="op">=</span> <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">get_uids</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="macro">vec</span><span class="macro">!</span>[]);
-    <span class="kw">for</span> <span class="ident">record</span> <span class="kw">in</span> <span class="ident">records</span> {
-        <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">record</span>);
-    }
+    <span class="comment">// //************************** PostgreSQL/Desiel*****************</span>
 
-    <span class="comment">// this uid does not exist</span>
-    <span class="kw">let</span> <span class="ident">no_exist</span> <span class="op">=</span> <span class="ident">db</span>.<span class="ident">clients</span>.<span class="ident">get_uid</span>(<span class="kw-2">&amp;</span><span class="ident">db</span>.<span class="ident">handle</span>, <span class="number">0</span>);
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">no_exist</span>);
+    <span class="comment">// let db = db::DatabaseHandler::connect();</span>
+    <span class="comment">// let new_client = db::clients::Client {</span>
+    <span class="comment">//     uid: 124,</span>
+    <span class="comment">//     ip: &quot;192.168.0.1&quot;.to_string(),</span>
+    <span class="comment">//     port: 8002,</span>
+    <span class="comment">// };</span>
 
-    <span class="comment">//******************* Redis Read/Write *********************</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>::<span class="ident">Cache</span>::<span class="ident">new</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> () <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">conn</span>.<span class="ident">set</span>(<span class="string">&quot;my_key&quot;</span>, <span class="number">42</span>)<span class="question-mark">?</span>;
+    <span class="comment">// let result = db.clients.upsert(&amp;db.handle, &amp;new_client).unwrap();</span>
+    <span class="comment">// // println!(&quot;{:?}&quot;, result);</span>
+    <span class="comment">// let num_deleted = db.clients.remove_uid(&amp;db.handle, 2767763803);</span>
+    <span class="comment">// println!(&quot;Deleted {} record&quot;, num_deleted.unwrap());</span>
+    <span class="comment">// let records = db.clients.get_uids(&amp;db.handle, vec![]);</span>
+    <span class="comment">// for record in records {</span>
+    <span class="comment">//     println!(&quot;{:?}&quot;, record);</span>
+    <span class="comment">// }</span>
 
-    <span class="kw">let</span> <span class="ident">k</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">conn</span>.<span class="ident">getset</span>(<span class="string">&quot;my_key&quot;</span>, <span class="number">43</span>)<span class="question-mark">?</span>;
+    <span class="comment">// // this uid does not exist</span>
+    <span class="comment">// let no_exist = db.clients.get_uid(&amp;db.handle, 0);</span>
+    <span class="comment">// println!(&quot;{:?}&quot;, no_exist);</span>
 
-    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">k</span>);
+    <span class="comment">// //******************* Redis Read/Write *********************</span>
+    <span class="comment">// let mut cache = cache::Cache::new()?;</span>
+    <span class="comment">// let () = cache.conn.set(&quot;my_key&quot;, 42)?;</span>
+
+    <span class="comment">// let k: Option&lt;usize&gt; = cache.conn.getset(&quot;my_key&quot;, 43)?;</span>
+
+    <span class="comment">// println!(&quot;{:?}&quot;, k);</span>
 
     <span class="comment">// println!(&quot;{:?}&quot;, k);</span>
     <span class="comment">// let client = redis::Client::open(&quot;redis://127.0.0.1&quot;)?;</span>

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CmdProxyAccount","command to connect to existing account"],["CmdProxyNew",""]]});
