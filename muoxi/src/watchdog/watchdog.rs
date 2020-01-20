@@ -16,7 +16,7 @@
 //! })?;
 //! ```
 
-use db::utils::{json_to_object, UID};
+use db::utils::{json_to_object, read_json_file, UID};
 use db::DatabaseHandler;
 use hotwatch::{Event, Hotwatch};
 use serde_json;
@@ -43,17 +43,9 @@ pub enum JsonFile {
     Characters,
 }
 
-/// simple wrapper to read from json file and return serde_json::Value
-pub fn read_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value> {
-    let file = File::open(String::from(path)).unwrap();
-    let reader = BufReader::new(&file);
-    let json: serde_json::Value = serde_json::from_reader(reader).unwrap();
-    Ok(json)
-}
-
 /// main function that triggers upload protocols for each change in file based on `JsonFile`
 pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> {
-    let db = DatabaseHandler::connect();
+    let _db = DatabaseHandler::connect();
 
     // set db depending on file
     match file {

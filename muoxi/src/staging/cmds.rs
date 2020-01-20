@@ -41,7 +41,7 @@ pub mod proxy_commands {
             vec!["n"]
         }
 
-        async fn execute_cmd(&self, mut client: &mut Client) -> CommandResult<()> {
+        async fn execute_cmd(&self, _client: &mut Client) -> CommandResult<()> {
             Ok(())
         }
     }
@@ -59,7 +59,7 @@ pub mod proxy_commands {
             vec!["acc"]
         }
 
-        async fn execute_cmd(&self, client: &mut Client) -> CommandResult<()> {
+        async fn execute_cmd(&self, _client: &mut Client) -> CommandResult<()> {
             Ok(())
         }
     }
@@ -67,5 +67,5 @@ pub mod proxy_commands {
 
 mod game_commands {
     //
-    use super::*;
+    // use super::*;
 }

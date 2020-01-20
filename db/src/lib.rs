@@ -10,6 +10,7 @@ extern crate diesel;
 pub mod cache;
 pub mod cache_structures;
 pub mod schema;
+pub mod structures;
 pub mod utils;
 
 use diesel::pg::PgConnection;
@@ -19,8 +20,11 @@ use diesel::prelude::*;
 pub struct DatabaseHandler {
     /// acutal connection to postgres database
     pub handle: PgConnection,
-    // / handle to the clients table
-    // pub clients: clients::ClientHandler,
+    /// handle to the Accounts table
+    pub accounts: structures::account::AccountHandler,
+
+    /// handle to the Characters table
+    pub characters: structures::character::CharacterHandler,
 }
 
 impl DatabaseHandler {
@@ -35,6 +39,8 @@ impl DatabaseHandler {
         Self {
             handle: conn,
             // clients: clients::ClientHandler {},
+            accounts: structures::account::AccountHandler,
+            characters: structures::character::CharacterHandler,
         }
     }
 }
