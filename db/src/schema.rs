@@ -9,12 +9,11 @@ table! {
 }
 
 table! {
-    posts (id) {
-        id -> Int4,
-        title -> Varchar,
-        body -> Text,
-        published -> Bool,
+    characters (uid) {
+        uid -> Int8,
+        account -> Int8,
+        name -> Varchar,
     }
 }
 
-allow_tables_to_appear_in_same_query!(accounts, posts,);
+allow_tables_to_appear_in_same_query!(accounts, characters,);

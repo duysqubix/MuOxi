@@ -6,6 +6,8 @@
 //!
 
 use crate::utils::UID;
+use diesel::expression_methods::TextExpressionMethods;
+use diesel::pg::upsert::excluded;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,7 @@ use std::convert::From;
 use std::iter::FromIterator;
 
 /// A representation a vector of records from database
+#[derive(Debug, Clone)]
 pub struct RecordVector<T>(pub Vec<T>);
 impl<T> RecordVector<T> {
     /// returns an empty initialized vector of records
@@ -44,6 +47,7 @@ impl<T> FromIterator<T> for RecordVector<T> {
 }
 
 /// A representation of json object
+#[derive(Debug, Clone)]
 pub struct RecordHashMap<T>(pub HashMap<UID, T>);
 
 impl<T: Clone> From<RecordHashMap<T>> for RecordVector<T> {
@@ -54,13 +58,13 @@ impl<T: Clone> From<RecordHashMap<T>> for RecordVector<T> {
 }
 
 /// a trait that handles interaction with the database
-pub trait DatabaseHandler<T> {
+pub trait DatabaseHandlerExt<T> {
     /// attempt to insert record, on conflict
     /// it will update the record
-    fn upsert(&self, conn: &PgConnection, record: T) -> QueryResult<T>;
+    fn upsert(&self, conn: &PgConnection, record: &T) -> QueryResult<T>;
 
     /// attempt to insert record, on conflict will return None
-    fn insert(&self, conn: &PgConnection, record: T) -> QueryResult<Option<T>>;
+    fn insert(&self, conn: &PgConnection, record: &T) -> Option<T>;
 
     /// removes record from database
     fn remove(&self, conn: &PgConnection, uid: UID) -> QueryResult<usize>;
@@ -70,6 +74,12 @@ pub trait DatabaseHandler<T> {
 
     /// retrieves a list of records from a list of UIDS for object T
     fn get_batch(&self, conn: &PgConnection, uids: Vec<UID>) -> QueryResult<RecordVector<T>>;
+
+    /// Get a range of UIDs
+    fn get_range(&self, conn: &PgConnection, from: UID, to: UID) -> QueryResult<RecordVector<T>> {
+        let uid_range: Vec<UID> = (from..to).collect();
+        self.get_batch(conn, uid_range)
+    }
 
     /// checks to see if a records exists
     fn exists(&self, conn: &PgConnection, uid: UID) -> bool {
@@ -106,11 +116,78 @@ pub mod account {
         pub email: String,
 
         /// Characters stored as a vector of the character UID numbers
-        pub characters: Vec<UID>,
+        pub characters: Option<Vec<i64>>,
     }
 
     /// Holds utilities to CRUD the Account table in the database
     pub struct AccountHandler;
+
+    impl DatabaseHandlerExt<Account> for AccountHandler {
+        fn upsert(&self, conn: &PgConnection, record: &Account) -> QueryResult<Account> {
+            diesel::insert_into(accounts::table)
+                .values(record)
+                .on_conflict(accounts::uid)
+                .do_update()
+                .set(record)
+                .get_result(conn)
+        }
+
+        fn insert(&self, conn: &PgConnection, record: &Account) -> Option<Account> {
+            let record_result = diesel::insert_into(accounts::table)
+                .values(record)
+                .get_result(conn);
+
+            match record_result {
+                Ok(result) => Some(result),
+                Err(e) => {
+                    println!("{}", e);
+                    None
+                }
+            }
+        }
+
+        fn remove(&self, conn: &PgConnection, uid: UID) -> QueryResult<usize> {
+            use self::accounts::dsl;
+            diesel::delete(dsl::accounts.filter(dsl::uid.eq(uid))).execute(conn)
+        }
+
+        fn get(&self, conn: &PgConnection, uid: UID) -> QueryResult<RecordVector<Account>> {
+            use self::accounts::dsl;
+            let record = dsl::accounts
+                .filter(dsl::uid.eq(uid))
+                .load::<Account>(conn)?;
+            Ok(RecordVector(record))
+        }
+
+        fn get_batch(
+            &self,
+            conn: &PgConnection,
+            uids: Vec<UID>,
+        ) -> QueryResult<RecordVector<Account>> {
+            use self::accounts::dsl;
+
+            let mut results: Vec<Account> = Vec::new();
+
+            if uids.len() == 0 {
+                let all_records = dsl::accounts.load::<Account>(conn)?;
+                return Ok(RecordVector(all_records));
+            }
+
+            for uid in uids.iter() {
+                let record = dsl::accounts
+                    .filter(dsl::uid.eq(uid))
+                    .load::<Account>(conn)?;
+
+                if let Some(acct) = record.first() {
+                    results.push(acct.clone());
+                } else {
+                    println!("Couldn't find record with uid: {}", uid);
+                }
+            }
+
+            Ok(RecordVector(results))
+        }
+    }
 
     /// Builder struct that creates Accounts with friendly API
     pub struct AccountBuilder {
@@ -146,7 +223,7 @@ pub mod account {
                 name: self.name.unwrap(),
                 email: self.email.unwrap(),
                 password: self.password.unwrap(),
-                characters: Vec::new(),
+                characters: Some(Vec::new()),
             }
         }
     }
@@ -154,12 +231,12 @@ pub mod account {
 
 /// holds db information regarding playable characters
 pub mod character {
-
-    use super::super::schema::accounts;
+    use super::super::schema::characters;
+    use super::*;
     use crate::utils::{gen_uid, UID};
 
     /// representation of the actual playable character
-    // #[derive(Queryable, Insertable, Debug, AsChangeset, Clone, Serialize, Deserialize)]
+    #[derive(Queryable, Insertable, Debug, AsChangeset, Clone, Serialize, Deserialize)]
     pub struct Character {
         /// unique id for each account
         pub uid: UID,

@@ -1,14 +1,17 @@
 {
-    "-1": {
-        "uid": -1,
+    "1": {
+        "uid": 1,
+        "account": 1,
         "name": "MyCharacter1"
     },
-    "-2": {
-        "uid": -2,
+    "2": {
+        "uid": 2,
+        "account": 1,
         "name": "MyCharacter2"
     },
-    "-3": {
-        "uid": -3,
+    "3": {
+        "uid": 3,
+        "account": 1,
         "name": "MyCharacte3"
     }
 }

@@ -1,13 +1,13 @@
 {
-    "-1": {
-        "uid": -1,
+    "1": {
+        "uid": 1,
         "name": "MyAccount",
         "password": "1234",
-        "email": "myemail@email.com",
+        "email": "myemail@email.co",
         "characters": [
-            -1,
-            -2,
-            -3
+            1,
+            2,
+            3
         ]
     }
 }
