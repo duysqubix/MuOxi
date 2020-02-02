@@ -188,45 +188,6 @@ pub mod account {
             Ok(RecordVector(results))
         }
     }
-
-    /// Builder struct that creates Accounts with friendly API
-    pub struct AccountBuilder {
-        name: Option<String>,
-
-        email: Option<String>,
-        password: Option<String>,
-    }
-
-    impl<'a> AccountBuilder {
-        /// create with name
-        pub fn with_name(&mut self, name: &'a str) -> &mut Self {
-            self.name = Some(String::from(name));
-            self
-        }
-
-        /// create with email
-        pub fn with_email(&mut self, email: &'a str) -> &mut Self {
-            self.email = Some(String::from(email));
-            self
-        }
-
-        /// create with password
-        pub fn with_password(&mut self, pass: &'a str) -> &mut Self {
-            self.password = Some(String::from(pass));
-            self
-        }
-
-        /// consume self and create Account
-        pub fn create(self) -> Account {
-            Account {
-                uid: gen_uid(),
-                name: self.name.unwrap(),
-                email: self.email.unwrap(),
-                password: self.password.unwrap(),
-                characters: Some(Vec::new()),
-            }
-        }
-    }
 }
 
 /// holds db information regarding playable characters
@@ -238,12 +199,81 @@ pub mod character {
     /// representation of the actual playable character
     #[derive(Queryable, Insertable, Debug, AsChangeset, Clone, Serialize, Deserialize)]
     pub struct Character {
-        /// unique id for each account
+        /// unique id for each chatacter
         pub uid: UID,
-        /// name of account
+
+        /// uid for account associated with character
+        pub account: UID,
+
+        /// name of character
         pub name: String,
     }
 
     /// Holds utilities to CRUD the Character table in the database
     pub struct CharacterHandler;
+
+    impl DatabaseHandlerExt<Character> for CharacterHandler {
+        fn upsert(&self, conn: &PgConnection, record: &Character) -> QueryResult<Character> {
+            diesel::insert_into(characters::table)
+                .values(record)
+                .on_conflict(characters::uid)
+                .do_update()
+                .set(record)
+                .get_result(conn)
+        }
+
+        fn insert(&self, conn: &PgConnection, record: &Character) -> Option<Character> {
+            let record_result = diesel::insert_into(characters::table)
+                .values(record)
+                .get_result(conn);
+
+            match record_result {
+                Ok(result) => Some(result),
+                Err(e) => {
+                    println!("{}", e);
+                    None
+                }
+            }
+        }
+
+        fn remove(&self, conn: &PgConnection, uid: UID) -> QueryResult<usize> {
+            use self::characters::dsl;
+            diesel::delete(dsl::characters.filter(dsl::uid.eq(uid))).execute(conn)
+        }
+
+        fn get(&self, conn: &PgConnection, uid: UID) -> QueryResult<RecordVector<Character>> {
+            use self::characters::dsl;
+            let record = dsl::characters
+                .filter(dsl::uid.eq(uid))
+                .load::<Character>(conn)?;
+            Ok(RecordVector(record))
+        }
+
+        fn get_batch(
+            &self,
+            conn: &PgConnection,
+            uids: Vec<UID>,
+        ) -> QueryResult<RecordVector<Character>> {
+            use self::characters::dsl;
+            let mut results: Vec<Character> = Vec::new();
+
+            if uids.len() == 0 {
+                let all_records = dsl::characters.load::<Character>(conn)?;
+                return Ok(RecordVector(all_records));
+            }
+
+            for uid in uids.iter() {
+                let record = dsl::characters
+                    .filter(dsl::uid.eq(uid))
+                    .load::<Character>(conn)?;
+
+                if let Some(character) = record.first() {
+                    results.push(character.clone());
+                } else {
+                    println!("Couldn't find record with uid: {}", uid);
+                }
+            }
+            Ok(RecordVector(results))
+        }
+    }
 }

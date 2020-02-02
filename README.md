@@ -12,6 +12,8 @@ fast, safe, and reliable language. Explore MuOxi API the *[rustacean][gh-pages-s
 
 ## Current Status
 
+*For Nightly Builds* an update on Rust nightly seems to have broken something with the `diesel` crate. 
+
 The codebase is currently in *alpha* stage . Majority of development is done on the `master` 
 branch. There is a working TCP server that allows
 for multiple connections and handles them accordingly. Effort is focused at the moment in 
