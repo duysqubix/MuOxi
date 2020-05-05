@@ -21,6 +21,7 @@ designing the database architecture utilizing [Diesel][diesel] with [PostgreSQL]
 
 ## Contributions
 
+Please submit PR's for approval and discussions.
 No matter your skill level any sort of effort into this project is extremely welcomed. For those wanting to contribute, checkout the `master` branch
 and submit PR's. Any questions or information, we welcome you at our [discord][discord] server. Come on by.
 
@@ -40,11 +41,75 @@ The bare minimum TODO features that must be implemented before I would consider 
 * ~~Implements a backend database, with friendly API tailored to MuOxi~~
 * Simple game showcasing features of MuOxi
 
-## Quick Setup
+## Getting Started
+
 In order for MuOxi applications to work as expected, it is necessary to have a fully working PostgreSQL and Redis server running.
 You can change it in the code to what user postgres should be using, but the default is `muoxi` with password `muoxi`. Redis server
 should be running as well, if you have successfully installed in on your OS, you can start it from the terminal using `redis-server`.
-In the future I will add scripts that will do this for you, upon initiliazing MuOxi.
+In the future I will add scripts that will do this for you, upon initiliazing MuOxi. For now, you must unfortuantly do everything by hand.
+Hopefully the following steps will guide you through the process to set up your environment for working on the code base.
+
+
+The following does assume you are working on Linux based OS. If you are using Windows >=10, use WSL as a linux sub and for everything else: Cygwin. However, I haven't
+tested this on a pure Windows environment..
+
+### Install some misc things, that have prevented me from compiling all the necessary Rust libraries.
+
+1. `sudo apt update && upgrade`
+2. `sudo apt install libpq-dev`
+3. Attempt `cargo build`, everything should build fine now..
+
+### Set Up Redis Server
+
+First you must install redis:
+
+1.  `sudo apt install redis-server -y`
+2.  `sudo service redis-server start` # enable on startup
+3.  To enable to make sure it is running you can manually start it with `redis-server` 
+
+To check if redis has installed and is running successfully run: `redis-cli` in the cli you should be greeted with `<127.0.0.1:6379>
+
+
+### Set Up Postgres SQL for the storage
+
+1. sudo apt install postgresql
+2. sudo service postgresql start
+3. sudo su - postgres
+4. createuser --superuser muoxi
+5. psql
+6. \password muoxi (muoxi for password)
+7. \q (to exit)
+8. createdb muoxi
+9. exit and now everything should be set up
+
+### Install Diesel Cli for migrations and database management
+
+Diesel is the Rust go-to solution for abstraction over database manipulation. It allows Rust code to be natively wrapped around the drivers for different SQL-based databases. This is equivalent to something like Django or Twistd for the python lovers.
+
+1. cargo install diesel_cli --no-default-features --postgres
+2. diesel migration run
+
+That should be the end of basic setup - you can test the connection by running `cargo run --bin muoxi\_staging` and pointing any telnet client to: `127.0.0.1:8000`. You should be greeted by the MuOxi logo.
+Have fun :)
+
+## Quick Start Guide
+
+The project contains multiple  bins that can be evoked from the command line:
+
+* *(Not working as intended at the moment)* **cargo run --bin muoxi_web**
+    * Starts the websocket server listening for incoming webclients, *default 8001*
+
+* **cargo run --bin muoxi_staging**
+    * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
+
+* **cargo run --bin muoxi_watchdog**
+  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update MongoDB
+
+* **cargo run --bin muoxi_engine**
+    * Starts the main game engine running in it's own seperate process. The whole game is contained
+    within a TCP listening server that exchanges information back and forth between to the Proxy Server. *Right now it is just an echo server*
+
+
 
 ## Database Design Architecture
 
@@ -58,7 +123,7 @@ as follows:
  Layer 1: JSON Files <--------
               |              |
              \ /             |
- Layer 2:  MongoDB -------   |
+ Layer 2:  Postgres ------   |
                          |   |
                          |   |
 -----------------------  |   |
@@ -143,25 +208,6 @@ As it stands the engine has the following capabilities:
 * Maintains a list of connected players
 * Hold shared states between connected clients
 * Removes clients upon disconnection
-
-
-## Quick Start Guide
-
-The project contains two seperate bin that can both be evoked from the command line:
-
-* *(Not working as intended at the moment)* **cargo run --bin muoxi_web**
-    * Starts the websocket server listening for incoming webclients, *default 8001*
-
-* **cargo run --bin muoxi_staging**
-    * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
-
-* **cargo run --bin muoxi_watchdog**
-  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update MongoDB
-
-* **cargo run --bin muoxi_engine**
-    * Starts the main game engine running in it's own seperate process. The whole game is contained
-    within a TCP listening server that exchanges information back and forth between to the Proxy Server. *Right now it is just an echo server*
-
 
 
 
