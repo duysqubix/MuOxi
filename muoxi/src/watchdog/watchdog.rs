@@ -96,7 +96,7 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
             // println!("");
         }
         JsonFile::Characters => {
-            //
+            println!("In Character");
             let chars = read_json_file(&*CHARACTERS).expect("Couldn't read from characters.json");
 
             let characters: HashMap<UID, Character> = json_to_object(chars).unwrap();
@@ -121,7 +121,6 @@ pub fn trigger_upload(file: JsonFile) -> Result<(), Box<dyn std::error::Error>> 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut watcher = Hotwatch::new_with_custom_delay(Duration::from_millis(100))?;
-
     watcher.watch(&*CHARACTERS, move |event| {
         if let Event::Write(_path) = event {
             trigger_upload(JsonFile::Characters).unwrap();
@@ -135,10 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Watchdog runing...");
     let t = thread::spawn(|| loop {});
-    t.join().unwrap();
-
-    // trigger_upload(JsonFile::Accounts).unwrap();
-    // trigger_upload(JsonFile::Characters).unwrap();
+    t.join().expect("Could not join thread");
 
     Ok(())
 }

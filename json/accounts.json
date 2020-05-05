@@ -3,11 +3,12 @@
         "uid": 1,
         "name": "MyOtherAccounts",
         "password": "1234",
-        "email": "myemail@email.co",
+        "email": "myemail@email.com",
         "characters": [
             1,
             2,
             3
+            
         ]
     }
 }
