@@ -162,7 +162,7 @@ handling different states of connected clients, combat data, player information,
 to keep the engine running. Upon an action within MuOxi that would causes a change to the Database, MuOxi will actually write to the flat-files
 instead of directly to PostgreSQL. This was a throughouly thought out process to keep PostgreSQL a read-only database, from the perspective of the engine itself.
 When a change occurs and MuOxi writes to the flat files we began again at layer 1 of the design. __It is the responsibility of the WatchDog to monitor changes to
-the json files and update MongoDB. MongoDB and the JSON files should always be a reflection of each other.__
+the json files and update PostgresSQL. PostgresSQL and the JSON files should always be a reflection of each other.__
 
 ## Core Design Architecture
 
