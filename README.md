@@ -219,7 +219,7 @@ this future vision for MuOxi will change over time, but it needs to fulfill some
 that I think will make this an outstanding project.
 
 1) The Core of MuOxi will be written in Rust, expanding the core will need Rust code
-2) The game logic, that handles how Mobs interact, expiermental mob AI integration, etc..
+2) The game logic, that handles how Mobs interact, experimental mob AI integration, etc..
    will be handled in Python.
 3) *add more here*
 
