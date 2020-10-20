@@ -39,12 +39,6 @@ pub type LinesCodecResult<T> = Result<T, LinesCodecError>;
 /// Custom error type revolving around the success of executing commands
 pub type CommandResult<T> = Result<T, &'static str>;
 
-/// Current listening port of the MuOxi game engine
-pub static GAME_ADDR: &'static str = "127.0.0.1:4567";
-
-/// Current listening port of the staging proxy server
-pub static PROXY_ADDR: &'static str = "127.0.0.1:8000";
-
 /// defines a command trait
 #[async_trait]
 pub trait Command: Debug + Sync {

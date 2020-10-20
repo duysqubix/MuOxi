@@ -23,11 +23,10 @@
 
 use redis::{Connection, RedisResult};
 
-/// default address for redis server
-pub static REDIS_SERVER: &'static str = "redis://127.0.0.1";
-
 /// main wrapper around redis::Connection
 pub struct Cache;
+
+use std::env;
 
 impl Cache {
     /// create new connection to cache server using custom uri
@@ -39,7 +38,8 @@ impl Cache {
 
     /// create new connection to cache server using default uri
     pub fn new() -> RedisResult<Connection> {
-        let client = redis::Client::open(REDIS_SERVER)?;
+        let redis_uri = env::var("REDIS_SERVER").unwrap_or("redis://127.0.0.1".to_string());
+        let client = redis::Client::open(redis_uri.as_str())?;
         let conn = client.get_connection()?;
         Ok(conn)
     }
