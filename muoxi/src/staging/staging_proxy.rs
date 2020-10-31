@@ -17,7 +17,7 @@ pub mod states;
 use comms::{Client, Comms, Server};
 use db::utils::{gen_uid, UID};
 // use db::DatabaseHandler;
-use crate::prelude::{LinesCodecResult, GAME_ADDR, PROXY_ADDR};
+use crate::prelude::{LinesCodecResult};
 use crate::states::ConnStates;
 use db::cache_structures::socket::CacheSocket;
 use db::cache_structures::Cachable;
@@ -266,16 +266,20 @@ pub async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), B
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env::set_var("RUST_LOG", "info, warn, error,test");
+    let game_addr: String = env::var("GAME_ADDR").unwrap_or("127.0.0.1:4567".to_string());
+    let proxy_addr: String = env::var("PROXY_ADDR").unwrap_or("127.0.0.1:8000".to_string());
+
+
     pretty_env_logger::init();
 
     let clients = Arc::new(Mutex::new(Server::new()));
 
     println!(
         "TCP Client listening on {} proxying to {}",
-        PROXY_ADDR, GAME_ADDR
+        proxy_addr, game_addr
     );
 
-    let mut listener = TcpListener::bind(&PROXY_ADDR).await?;
+    let mut listener = TcpListener::bind(&proxy_addr).await?;
 
     while let Ok((stream, addr)) = listener.accept().await {
         // For each inbound client - step through states and only when

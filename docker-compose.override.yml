@@ -1,0 +1,39 @@
+version: "3.7"
+
+networks:
+  backend:
+
+services:
+  migration: &app
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        DEVELOPER_UID: ${UID:-1000}
+        DEVELOPER_USERNAME: ${USER:-you}
+    image: thelastinuit/muoxi:development
+    entrypoint: /usr/src/dev-entrypoint.sh
+    volumes:
+      - .:/usr/src
+    networks:
+      - backend
+    stdin_open: true
+    tty: true
+    depends_on:
+      - postgres
+      - redis
+    command: diesel migration run
+    environment: &app_environment
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/
+
+  server:
+    <<: *app
+    command: cargo run --bin muoxi_staging
+    ports:
+      - ${MUOXI_SERVER_PORT:-8000}:8000
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      <<: *app_environment

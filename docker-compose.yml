@@ -1,0 +1,25 @@
+version: "3.7"
+
+volumes:
+  postgres_data:
+  redis_data:
+
+services:
+  redis:
+    image: redis:5.0-alpine
+    ports:
+      - ${REDIS_PORT:-6379}:6379
+    volumes:
+      - redis_data:/data
+    command: redis-server
+    networks: 
+      - backend
+
+  postgres:
+    image: postgres:10.6-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - backend

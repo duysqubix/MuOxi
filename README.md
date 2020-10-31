@@ -92,6 +92,15 @@ Diesel is the Rust go-to solution for abstraction over database manipulation. It
 That should be the end of basic setup - you can test the connection by running `cargo run --bin muoxi\_staging` and pointing any telnet client to: `127.0.0.1:8000`. You should be greeted by the MuOxi logo.
 Have fun :)
 
+### Docker Environment, Alternative
+If you happen to use Docker for your projects, MuOxi has the necessary configuration to start hacking right away. Just type:
+
+```bash
+$ docker-compose up server
+```
+
+After a few minutes, you will have postgres, redis and MuOxi itself running. Happy Hacking!
+
 ## Quick Start Guide
 
 The project contains multiple  bins that can be evoked from the command line:
