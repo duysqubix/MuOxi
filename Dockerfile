@@ -31,8 +31,6 @@ RUN apt-get update && \
 COPY . /usr/src/
 RUN \
     cargo install diesel_cli --no-default-features --features postgres && \
-    export DATABASE_URL=postgres://postgres@example.com:5432/fakedb && \
-    diesel migration run && \
     cargo install --path=/usr/src/muoxi 
 USER ${DEVELOPER_UID}
 CMD [ "cargo", "run", "--bin", "muoxi_staging" ]
