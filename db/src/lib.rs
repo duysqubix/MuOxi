@@ -16,6 +16,8 @@ pub mod utils;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
+use std::env;
+
 /// Main database handler struct
 pub struct DatabaseHandler {
     /// acutal connection to postgres database
@@ -31,10 +33,10 @@ impl DatabaseHandler {
     /// creates a new instance of the handler and defaults to
     /// postgres url: `postgres://muoxi:muoxi@localhost/muoxi`
     /// When setting up postgresql create user name `muoxi` and password `muoxi`
-    /// and/or replace the internal url variable in this function with an appropriate
-    /// and valid url. It will panic if it can't connect to a database.
+    /// and/or set the DATABASE_URL environment variable to an appropriate
+    /// and valid url. This function will panic if it can't connect to a database.
     pub fn connect() -> Self {
-        let url = "postgres://muoxi:muoxi@localhost/muoxi".to_string();
+        let url = env::var("DATABASE_URL").unwrap_or("postgres://muoxi:muoxi@localhost/muoxi".to_string());
         let conn = PgConnection::establish(&url).expect("Couldn't create handle to database");
         Self {
             handle: conn,
