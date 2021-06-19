@@ -1,7 +1,6 @@
 FROM rust:1.47.0-slim AS runtime
 ENV LANG C.UTF-8
 WORKDIR /usr/src
-ENV HOME=/usr/src PATH=/usr/src/bin:$PATH
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     apt-transport-https software-properties-common \
