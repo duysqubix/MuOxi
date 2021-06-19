@@ -2,6 +2,8 @@
 
 set -e
 
+export PATH=$PATH:$HOME/.cargo/bin
+
 : ${APP_PATH:="/usr/src"}
 : ${APP_TEMP_PATH:="$APP_PATH/tmp"}
 : ${APP_SETUP_LOCK:="$APP_TEMP_PATH/setup.lock"}
