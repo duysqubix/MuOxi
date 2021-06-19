@@ -29,12 +29,12 @@ RUN apt-get update && \
     useradd -r -M -u ${DEVELOPER_UID} -d /usr/src -c "Developer User,,," ${DEVELOPER_USERNAME} && \
     chown -R $DEVELOPER_UID /usr/src
 COPY . /usr/src/
-USER ${DEVELOPER_UID}
 RUN \
     cargo install diesel_cli --no-default-features --features postgres && \
     export DATABASE_URL=postgres://postgres@example.com:5432/fakedb && \
     diesel migration run && \
     cargo install --path=/usr/src/muoxi 
+USER ${DEVELOPER_UID}
 CMD [ "cargo", "run", "--bin", "muoxi_staging" ]
 
 FROM runtime AS release
