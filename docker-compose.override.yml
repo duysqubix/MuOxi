@@ -24,16 +24,13 @@ services:
       - postgres
       - redis
     command: diesel migration run
-    environment: &app_environment
+    environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/
+    env_file:
+      ./.env
 
   server:
     <<: *app
     command: cargo run --bin muoxi_staging
     ports:
       - ${MUOXI_SERVER_PORT:-8000}:8000
-    depends_on:
-      - postgres
-      - redis
-    environment:
-      <<: *app_environment
