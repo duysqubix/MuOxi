@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
+      target: builder
       args:
         DEVELOPER_UID: ${UID:-1000}
         DEVELOPER_USERNAME: ${USER:-you}
@@ -24,8 +24,8 @@ services:
       - postgres
       - redis
     command: diesel migration run
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/
+    #environment:
+    #  DATABASE_URL: postgres://postgres:postgres@postgres:5432/
     env_file:
       ./.env
 

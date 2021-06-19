@@ -16,32 +16,26 @@ RUN export DOCKERIZE_VERSION=v0.6.1 && curl -L \
     | tar -C /usr/local/bin -xz
 
     
-FROM runtime AS development
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
-COPY . /usr/src/
-RUN cargo install --path=/usr/src/muoxi 
-CMD [ "cargo", "run", "--bin", "muoxi_staging" ]
-
-FROM development AS testing
-COPY . /usr/src
+FROM runtime AS builder
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_USERNAME=you
 ENV DEVELOPER_UID=${DEVELOPER_UID}
-RUN useradd -r -M -u ${DEVELOPER_UID} -d /usr/src -c "Developer User,,," ${DEVELOPER_USERNAME} \
- && echo ${DEVELOPER_USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${DEVELOPER_USERNAME} \
- && chmod 0440 /etc/sudoers.d/${DEVELOPER_USERNAME}
-
-
-FROM testing AS builder
-RUN cargo install diesel_cli --no-default-features --postgres
-RUN export DATABASE_URL=postgres://postgres@example.com:5432/fakedb \
-    diesel migration run
-
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        libpq-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -r -M -u ${DEVELOPER_UID} -d /usr/src -c "Developer User,,," ${DEVELOPER_USERNAME} && \
+    chown -R $DEVELOPER_UID /usr/src
+COPY . /usr/src/
+USER ${DEVELOPER_UID}
+RUN \
+    cargo install diesel_cli --no-default-features --features postgres && \
+    export DATABASE_URL=postgres://postgres@example.com:5432/fakedb && \
+    diesel migration run && \
+    cargo install --path=/usr/src/muoxi 
+CMD [ "cargo", "run", "--bin", "muoxi_staging" ]
 
 FROM runtime AS release
 COPY --from=builder /usr/local/bundle /usr/local/bundle
