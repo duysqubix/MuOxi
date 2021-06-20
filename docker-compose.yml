@@ -16,7 +16,11 @@ services:
       - backend
 
   postgres:
-    image: postgres:10.6-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+      target: muoxi-postgres
+    image: muoxi/postgres:development
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
