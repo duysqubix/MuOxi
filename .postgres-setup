@@ -13,3 +13,7 @@ psql
 \q to exit
 createdb $USER by convention
 exit and now you can run psql in your own console with your username.
+
+- or if you want to use muoxi:muoxi on a database named muoxi, you can run:
+
+sudo -u postgres psql -v ON_ERROR_STOP=1 -f init-muoxi-db.sql
