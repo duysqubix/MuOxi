@@ -53,4 +53,3 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.schema-version="1.0.0-rc1" \
       build-target="release" \
       build-branch=$SOURCE_BRANCH
-
