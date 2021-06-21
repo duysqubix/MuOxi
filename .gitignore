@@ -2,3 +2,9 @@ target/*
 bin/lib*
 bin/muoxi*
 !target/doc
+
+# JetBrains IDE
+.idea/
+
+# vim swap files
+**/.*.swp

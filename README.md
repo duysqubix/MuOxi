@@ -86,7 +86,7 @@ To check if redis has installed and is running successfully run: `redis-cli` in 
 
 Diesel is the Rust go-to solution for abstraction over database manipulation. It allows Rust code to be natively wrapped around the drivers for different SQL-based databases. This is equivalent to something like Django or Twistd for the python lovers.
 
-1. cargo install diesel_cli --no-default-features --postgres
+1. cargo install diesel_cli --no-default-features --features postgres
 2. diesel migration run
 
 That should be the end of basic setup - you can test the connection by running `cargo run --bin muoxi\_staging` and pointing any telnet client to: `127.0.0.1:8000`. You should be greeted by the MuOxi logo.

@@ -1,10 +1,46 @@
 version: "3.7"
 
+x-template: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: builder
+    args:
+      MUOXI_UID: ${UID:-1000}
+      MUOXI_USERNAME: ${USER:-you}
+      MUOXI_INSTALL_DIR: ${MUOXI_INSTALL_DIR:-/opt/muoxi}
+  image: thelastinuit/muoxi:development
+  volumes:
+    - .:${MUOXI_INSTALL_DIR}
+  networks:
+    - backend
+  stdin_open: true
+  tty: true
+  depends_on:
+    - postgres
+    - redis
+  env_file:
+    ./.env
+  command: "/bin/sh -i"
+
 volumes:
   postgres_data:
   redis_data:
 
+networks:
+  backend:
+
 services:
+  migration:
+    <<: *app
+    command: "/bin/sh -c \"$${MUOXI_INSTALL_DIR}/dev-entrypoint.sh diesel migration run\""
+
+  server:
+    <<: *app
+    command: "/bin/sh -c \"$${MUOXI_INSTALL_DIR}/dev-entrypoint.sh cargo run --bin muoxi_staging\""
+    ports:
+      - ${MUOXI_SERVER_PORT:-8000}:8000
+
   redis:
     image: redis:5.0-alpine
     ports:
@@ -16,7 +52,11 @@ services:
       - backend
 
   postgres:
-    image: postgres:10.6-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+      target: muoxi-postgres
+    image: muoxi/postgres:development
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:

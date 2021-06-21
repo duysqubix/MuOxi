@@ -1,7 +1,7 @@
 FROM rust:1.47.0-slim AS runtime
-ENV LANG C.UTF-8
-WORKDIR /usr/src
-ENV HOME=/usr/src PATH=/usr/src/bin:$PATH
+ARG MUOXI_INSTALL_DIR=/opt/muoxi
+ENV LANG=C.UTF-8 MUOXI_INSTALL_DIR=${MUOXI_INSTALL_DIR}
+WORKDIR ${MUOXI_INSTALL_DIR}
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     apt-transport-https software-properties-common \
@@ -16,36 +16,28 @@ RUN export DOCKERIZE_VERSION=v0.6.1 && curl -L \
     | tar -C /usr/local/bin -xz
 
     
-FROM runtime AS development
+FROM runtime AS builder
+ARG MUOXI_UID=1000
+ARG MUOXI_USERNAME=you
+ENV MUOXI_UID=${MUOXI_UID}
+COPY . ${MUOXI_INSTALL_DIR}
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential \
-    git \
-    libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
-COPY . /usr/src/
-RUN cargo install --path=/usr/src/muoxi 
+        build-essential \
+        git \
+        libpq-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -r -M -u ${MUOXI_UID} -d ${MUOXI_INSTALL_DIR} -c "MuOxi user,,," ${MUOXI_USERNAME} && \
+    chown -R $MUOXI_UID ${MUOXI_INSTALL_DIR}
+USER ${MUOXI_UID}
+RUN \
+    cargo install diesel_cli --no-default-features --features postgres && \
+    cargo install --path=${MUOXI_INSTALL_DIR}/muoxi
 CMD [ "cargo", "run", "--bin", "muoxi_staging" ]
-
-FROM development AS testing
-COPY . /usr/src
-ARG DEVELOPER_UID=1000
-ARG DEVELOPER_USERNAME=you
-ENV DEVELOPER_UID=${DEVELOPER_UID}
-RUN useradd -r -M -u ${DEVELOPER_UID} -d /usr/src -c "Developer User,,," ${DEVELOPER_USERNAME} \
- && echo ${DEVELOPER_USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${DEVELOPER_USERNAME} \
- && chmod 0440 /etc/sudoers.d/${DEVELOPER_USERNAME}
-
-
-FROM testing AS builder
-RUN cargo install diesel_cli --no-default-features --postgres
-RUN export DATABASE_URL=postgres://postgres@example.com:5432/fakedb \
-    diesel migration run
-
 
 FROM runtime AS release
 COPY --from=builder /usr/local/bundle /usr/local/bundle
-COPY --from=builder --chown=nobody:nogroup /usr/src /usr/src
+COPY --from=builder --chown=nobody:nogroup ${MUOXI_INSTALL_DIR} ${MUOXI_INSTALL_DIR}
 USER nobody
 CMD [ "cargo", "run", "--bin", " muoxi_web" ]
 ARG SOURCE_BRANCH="master"
@@ -61,4 +53,3 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.schema-version="1.0.0-rc1" \
       build-target="release" \
       build-branch=$SOURCE_BRANCH
-

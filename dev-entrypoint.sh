@@ -2,7 +2,9 @@
 
 set -e
 
-: ${APP_PATH:="/usr/src"}
+export PATH=$PATH:$HOME/.cargo/bin
+
+: ${APP_PATH:="$MUOXI_INSTALL_DIR"}
 : ${APP_TEMP_PATH:="$APP_PATH/tmp"}
 : ${APP_SETUP_LOCK:="$APP_TEMP_PATH/setup.lock"}
 : ${APP_SETUP_WAIT:="5"}

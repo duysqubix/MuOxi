@@ -1,0 +1,2 @@
+FROM postgres:13-alpine AS muoxi-postgres
+COPY init-muoxi-db.sql /docker-entrypoint-initdb.d/
