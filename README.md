@@ -1,7 +1,19 @@
+
+## Recent Updates ##
+
+Due to life.. in general the activity on this project has died down significantly. I have future plans to spin this back up again
+but .. well two kids later .. any sort of free time is quite precious. This is still a project I really am interested in doing and most of
+the work from here will be design concepts before really any implementation is done. Rust has come a long way since I first started up this project, which may
+require to revisit the code.
+
+For the folks who have contributed, I thank you deep from the bottom of my heart, and I urge anyone to continue to help out. I will be working on a roadmap and a list
+of features for anyone to take up if they feel like it. My programming skill and project management skills have also significantly changed since I started this. Keep tuned, 
+this isn't making progress as much as I'd like, but we'll get there. If someone hasn't done this effort already.
+
+
 # ![muoxi_logo][logo] 
 # MuOxi MUD/MU* Rustic Game Engine v0.1.0
 [![Build Status][travisimg]][travislink] [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) 
-
 
 
 *MuOxi* is a modern library for creating [online multiplayer text
