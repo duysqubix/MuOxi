@@ -3,8 +3,13 @@ bin/lib*
 bin/muoxi*
 !target/doc
 
-# JetBrains IDE
 .idea/
 
-# vim swap files
 **/.*.swp
+
+data/world.db
+data/world.db-wal
+data/world.db-shm
+data/*.sqlite
+data/*.sqlite-wal
+data/*.sqlite-shm
