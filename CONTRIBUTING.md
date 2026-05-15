@@ -1,29 +1,30 @@
 # Contributing to MuOxi
 
-Thanks for your interest. MuOxi has room for contributions at every
-level — framework wiring, downstream-facing API polish, documentation,
-examples, and entire opt-in modules.
+Thanks for your interest. There's room for contributions at every level —
+framework wiring, API polish, documentation, examples, and entire opt-in
+modules.
 
-This file covers the basics for working on the framework itself. For
-deeper detail on the codebase, see
-[docs/development.md](docs/development.md). For an orientation on the
+This file covers the basics. For deeper detail on the codebase, see
+[docs/development.md](docs/development.md). For an orientation on
 project shape and philosophy, see
 [docs/architecture.md](docs/architecture.md).
 
 ## Before you start
 
-Three things:
+A few things will save everyone time.
 
-1. **Read the relevant `AGENTS.md`.** Each non-trivial subsystem
-   (root, `db/`, `muoxi/`, `muoxi/src/server/`) has one documenting local
-   conventions and anti-patterns. Reading it before you change the
-   subsystem saves both sides from rework.
-2. **Open an issue for non-trivial changes.** If you're fixing a typo or
-   adding a missing docstring, just send the PR. If you're touching the
-   state machine, the hook trait, the lock DSL, or anything else with
-   load-bearing design — open an issue first.
-3. **Run the tests for the area you changed.** See [Testing matrix](#testing-matrix)
-   below.
+Read the relevant `AGENTS.md`. Each non-trivial subsystem (root,
+`db/`, `muoxi/`, `muoxi/src/server/`) has one documenting local
+conventions and the things that have caught people out. Skimming it
+before changing the subsystem helps.
+
+Open an issue for non-trivial changes. Typo fixes and small docs
+improvements can go straight to a PR; touching the state machine, the
+hook trait, the lock DSL, or anything else with load-bearing design is
+worth a quick conversation first.
+
+Run the tests for the area you changed. The matrix below maps changes
+to commands.
 
 ## Setup
 
@@ -33,55 +34,41 @@ cd MuOxi
 cargo build --workspace
 ```
 
-You need Rust 1.85+, but `rustup` will fetch the right toolchain
-automatically thanks to [`rust-toolchain.toml`](rust-toolchain.toml). The
-default SQLite build needs **zero system packages**.
-
-If you want to work on the Postgres path, also install `libpq-dev` (or
-your platform's equivalent).
+`rustup` will fetch the toolchain pinned in
+[`rust-toolchain.toml`](rust-toolchain.toml). The default SQLite build
+needs no system packages. For the Postgres path, you'll also want
+`libpq-dev`.
 
 Sanity check:
 
 ```bash
 cargo check --workspace
-cargo test -p db --features db-sqlite     # 9 tests
-cargo test -p muoxi --test registry       # 3 tests
-cargo test -p muoxi --lib auth            # 3 tests
+cargo test -p db --features db-sqlite
+cargo test -p muoxi --test registry
+cargo test -p muoxi --lib auth
 ```
 
 All should pass on a clean clone.
 
 ## Conventions
 
-The non-negotiable ones:
+A handful of conventions hold across the codebase. The full set is in
+[docs/development.md](docs/development.md); the gist:
 
-- **Rust edition 2024**, stable channel, MSRV 1.85.
-- **Tokio 1.x async runtime**. Use individual `AsyncReadExt` /
-  `AsyncWriteExt` imports — `tokio::prelude` doesn't exist in 1.x.
-- **Diesel 2.x style**. Every query helper takes `&mut Conn`. Macros
-  are namespaced (`diesel::table!`).
-- **SQLite is the default backend.** Postgres is opt-in via
-  `--features db-postgres`. The compile-error in
-  [`db/src/conn.rs`](db/src/conn.rs) enforces that exactly one backend
-  is selected.
-- **Repos, not raw Diesel.** Engine and downstream code go through
-  `WorldApi` and `db.objects.*`, not `diesel::insert_into(...)`.
-- **`#![deny(missing_docs)]`** on the `db` crate. Every public item
-  needs a docstring.
-- **No Postgres-only types in the core schema.** No `BIGINT[]`, no
-  `JSONB`, no `LISTEN/NOTIFY`. Keep the schema portable.
-- **No type-safety escape hatches.** No `as any`-style suppression of
-  real issues. Fix the type, don't silence the compiler.
+- Edition 2024, stable Rust 1.85.
+- Tokio 1.x — individual `AsyncReadExt` / `AsyncWriteExt` imports
+  (there's no `tokio::prelude` in 1.x).
+- Diesel 2.x — query helpers take `&mut Conn`, macros are namespaced.
+- SQLite is the default backend; Postgres is opt-in via
+  `--features db-postgres`. The schema stays portable between them.
+- Engine and downstream code reach for `WorldApi`, not Diesel directly.
+- The `db` crate has `#![deny(missing_docs)]`. Public items get
+  docstrings.
 
-When in doubt, match the surrounding code's style. If you see a genuine
-inconsistency, raising it in a PR is welcome.
-
-For deeper conventions (logging, dependency policy, migration
-authoring), see [docs/development.md § Conventions](docs/development.md#conventions).
+When in doubt, match the surrounding code. Genuine inconsistencies are
+worth raising in a PR.
 
 ## Testing matrix
-
-Run the test row(s) that match what you changed:
 
 | You changed | Run |
 | --- | --- |
@@ -90,85 +77,70 @@ Run the test row(s) that match what you changed:
 | `muoxi/src/server/registry.rs`, `typeclass.rs`, `commands/` | `cargo test -p muoxi --test registry` |
 | `muoxi/src/server/auth.rs` | `cargo test -p muoxi --lib auth` |
 | Anything in `muoxi/src/server/` (broad) | `cargo check --workspace && cargo clippy --workspace --no-deps` |
-| Docker / deploy / `Dockerfile` | `docker compose build && docker compose up` then run [docs/getting-started.md](docs/getting-started.md)'s walkthrough |
+| Docker / `Dockerfile` | `docker compose build && docker compose up` then walk through [docs/getting-started.md](docs/getting-started.md) |
 | Postgres backend code paths | `cargo check -p db --no-default-features --features db-postgres` |
 
-There's no automated CI configured yet — treat these local checks as
-the gate.
+There's no automated CI yet — local checks are the gate.
 
-## Where to find work
+## Finding work
 
-The [roadmap](docs/roadmap.md) is the canonical list. Notably:
-
-- **v0.1.x** — small bugfixes and dev-ergonomics improvements (hermetic
-  auth-flow tests, `DEV_AUTOLOGIN` character cleanup, lint recipe).
-- **v0.2** — closing the gaps in the extension surface (wiring the
-  declared-but-not-fired hooks, generic TypeClass default application,
-  server-aware `who`, room-broadcast helper).
-- **v0.3** — richer lock DSL, pluggable auth, in-game builder commands.
-
-If something interests you that isn't listed, open an issue. The
-roadmap is opinionated, not infallible.
+The [roadmap](docs/roadmap.md) describes where the project is headed.
+If something there interests you, open an issue and we can scope it
+together.
 
 Smaller starter tasks if you want to get familiar with the codebase:
 
-- Replace the placeholder `who` behavior (lists all character objects
-  in the world) with one that lists currently-connected sessions. The
+- Replace the placeholder `who` (lists every character object in the
+  world) with one that lists currently-connected sessions. The
   challenge is threading `Arc<Mutex<Server>>` through `CommandContext`.
-- Add `go <direction>` / `<direction>` movement commands (the framework
+- Add `go <direction>` / `<direction>` movement commands. The framework
   doesn't ship them; `docs/world-building.md` has a reference
-  implementation).
-- Add a `cargo bench` baseline using Criterion — there's room for one,
-  and there's no perf harness yet (we deleted the 2020-era one).
+  implementation.
+- Add a Criterion baseline for the hot DB paths. The repo has no perf
+  harness yet.
+
+If something interests you that isn't listed, open an issue.
 
 ## Commit messages
 
-Conventional-Commits-ish prefixes:
+Conventional-Commits-ish prefixes work well here:
 
-- `feat(scope): ...` — new functionality
-- `fix(scope): ...` — bug fix
-- `refactor(scope): ...` — internal change, no behavior shift
-- `docs(scope): ...` — documentation-only
-- `test(scope): ...` — test additions or changes
-- `chore(scope): ...` — tooling, housekeeping
+- `feat(scope): ...`
+- `fix(scope): ...`
+- `refactor(scope): ...`
+- `docs(scope): ...`
+- `test(scope): ...`
+- `chore(scope): ...`
 
 Scope is usually the crate (`db`, `muoxi`) or subsystem (`server`,
 `web`, `agents`).
 
-The body should explain the *why* in 1-3 short paragraphs. If a change
-is non-obvious, say what alternatives you considered and why this one.
-
-Atomic commits — each commit should be a single logical change that
-passes `cargo check --workspace`.
+Bodies explain the why. Atomic commits make review easier.
 
 ## Pull requests
 
-- Keep PRs focused. A PR that wires `at_pre_move` is much easier to
-  review than one that wires three hooks and refactors the dispatcher.
-- Reference issues in the PR description (`Fixes #N`, `Refs #M`).
-- If your change touches public API (`WorldApi`, `Command`, `Hook`,
-  `TypeClass`, `Registry`), add or update the relevant docstrings *and*
-  update [docs/extension-guide.md](docs/extension-guide.md) if the
-  surface shifts.
-- If your change touches the schema, the migration AND the
-  `db/src/schema.rs` regeneration go in the same PR (or atomic
-  commits).
+Keep PRs focused. One wired hook event is a much easier review than
+three plus a dispatcher refactor.
 
-## Reporting bugs / requesting features
+Reference issues (`Fixes #N`, `Refs #M`). If your change touches public
+API (`WorldApi`, `Command`, `Hook`, `TypeClass`, `Registry`), update
+the docstrings and the relevant entry in
+[docs/extension-guide.md](docs/extension-guide.md).
 
-Open an issue. Templates aren't in place yet — for now:
+Schema changes ship together: the migration, the regenerated
+`db/src/schema.rs`, and the structures that exercise the new tables.
 
-- **Bug**: what you did, what you expected, what happened, logs / repro
-  steps, and the commit you're on.
-- **Feature**: the use case, what API shape you'd want, and why it
-  doesn't fit `WorldApi`/`Command`/`Hook` already.
+## Reporting bugs
+
+Open an issue with what you did, what you expected, what happened, the
+commit you're on, and any logs or repro steps. We don't have templates
+yet — readable prose is fine.
 
 ## Code of conduct
 
-Be respectful. Don't be a jerk. We're rebuilding something fun
-together — let's keep it that way.
+Be kind. We're rebuilding something fun together.
 
 ## License
 
-By contributing, you agree your code is released under the same GPL-3.0
-license as the project.
+By contributing, you agree your code is released under the same
+GPL-3.0 license as the project.

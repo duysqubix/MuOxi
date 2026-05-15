@@ -18,7 +18,7 @@ back here.
 | Build out your world — rooms, items, mobs, attributes, tags | [world-building.md](world-building.md) |
 | Deploy MuOxi (env vars, docker, optional Postgres) | [deployment.md](deployment.md) |
 | Hack on MuOxi itself (the framework, not a downstream MUD) | [development.md](development.md) |
-| See what's done, what's next, and what's deliberately out of scope | [roadmap.md](roadmap.md) |
+| See where the project is headed | [roadmap.md](roadmap.md) |
 | Look up a term | [glossary.md](glossary.md) |
 
 ## Repository orientation

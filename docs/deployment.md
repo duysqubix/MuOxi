@@ -1,63 +1,45 @@
 # Deployment
 
-How to run MuOxi outside of `docker compose up`. For a 5-minute first
-contact, see [getting-started.md](getting-started.md).
+How to run MuOxi outside of `docker compose up`. For first contact see
+[getting-started.md](getting-started.md).
 
 ## Environment variables
 
 | Var | Default | Purpose |
 | --- | --- | --- |
-| `PROXY_ADDR` | `127.0.0.1:8000` | Where `muoxi_server` binds the TCP listener. Use `0.0.0.0:8000` to accept external connections. |
-| `WEB_ADDR` | `127.0.0.1:8080` | Where `muoxi_web` binds (HTTP + WS bridge). |
-| `DATABASE_URL` | `data/world.db` (SQLite) / `postgres://muoxi:muoxi@localhost/muoxi` (PG) | Backend connection string. Path-style for SQLite, libpq-style for Postgres. |
-| `REDIS_SERVER` | `redis://127.0.0.1` | Session cache. The server boots without Redis but logs errors. |
-| `DEV_AUTOLOGIN` | unset | If set to anything non-empty (and not `0`), new connections skip auth and land in `Playing` as a throwaway `Dev` character. **Never set in production.** |
+| `PROXY_ADDR` | `127.0.0.1:8000` | TCP bind address for `muoxi_server`. Use `0.0.0.0:8000` for external connections. |
+| `WEB_ADDR` | `127.0.0.1:8080` | Bind address for `muoxi_web` (HTTP + WS). |
+| `DATABASE_URL` | `data/world.db` (SQLite) / `postgres://muoxi:muoxi@localhost/muoxi` (PG) | Backend connection string. Path for SQLite, libpq URL for Postgres. |
+| `REDIS_SERVER` | `redis://127.0.0.1` | Session cache. The server boots without it but logs errors per connection. |
+| `DEV_AUTOLOGIN` | unset | If non-empty and not `0`, new connections skip auth and land in `Playing` as a throwaway `Dev` character. For dev only. |
 | `RUST_LOG` | `info,warn,error,test` (forced inside `muoxi_server`) | Standard `env_logger` / `pretty_env_logger` filter. |
-| `MUOXI_SERVER_PORT` | `8000` | Used by docker-compose to remap the host port. |
+| `MUOXI_SERVER_PORT` | `8000` | Docker host-side port remap. |
 | `MUOXI_WEB_PORT` | `8080` | Same, for the web bridge. |
 
-## Docker (default path)
+## Docker
 
 ```bash
 docker compose up
 ```
 
-This builds the multi-stage `Dockerfile` (rust:1.85 builder → debian:bookworm-slim
-runtime), starts Redis as a sidecar, and runs both `muoxi_server` and
-`muoxi_web`. The SQLite database lives in a named volume so it survives
-container restarts.
-
-To wipe and start fresh:
+Builds the multi-stage `Dockerfile`, starts Redis as a sidecar, runs
+`muoxi_server` and `muoxi_web`. The SQLite database lives in a named
+volume.
 
 ```bash
-docker compose down -v
-```
-
-To rebuild after pulling new code:
-
-```bash
-docker compose build
-docker compose up
-```
-
-To run with autologin for dev:
-
-```bash
+docker compose down -v          # wipe and start fresh
+docker compose build            # rebuild after pulling new code
 DEV_AUTOLOGIN=1 docker compose up
 ```
 
-### Port collisions
-
-The compose file exposes 8000 and 8080 by default. If those are taken on
-your host:
+If host ports 8000 or 8080 are taken:
 
 ```bash
 MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 docker compose up
-# clients connect to localhost:18000 / localhost:18080
 ```
 
-The server inside the container still binds 8000 — the compose file maps
-the host ports.
+The server inside the container still binds 8000; the compose file
+maps the host ports.
 
 ## Bare metal
 
@@ -66,10 +48,11 @@ cargo build --workspace --release
 target/release/muoxi_server
 ```
 
-The server reads `resources/welcome.txt` with a CWD-relative path, so run
-binaries from the repo root (or copy `resources/` alongside the binary).
+The server reads `resources/welcome.txt` with a CWD-relative path —
+run binaries from the repo root, or copy `resources/` alongside the
+binary.
 
-The first run creates `data/world.db` (also CWD-relative). Override with
+The first run creates `data/world.db`. Override with
 `DATABASE_URL=/var/lib/muoxi/world.db`.
 
 For external access:
@@ -82,10 +65,10 @@ target/release/muoxi_web &
 
 ## Postgres
 
-Default builds use SQLite (bundled). For a Postgres deployment:
+Default builds use SQLite (bundled). For Postgres:
 
 ```bash
-sudo apt install libpq-dev          # or your platform's libpq package
+sudo apt install libpq-dev
 cargo build --workspace --release --no-default-features --features db-postgres
 ```
 
@@ -104,46 +87,44 @@ DATABASE_URL=postgres://muoxi:muoxi@localhost/muoxi \
   target/release/muoxi_server
 ```
 
-Migrations are embedded into the binary and applied on startup —
-**no `diesel migration run` needed**. This applies to both backends.
+Migrations are embedded into the binary and applied on startup — no
+`diesel migration run` invocation needed at runtime. This applies to
+both backends.
 
-The schema is intentionally portable (BigInt / Text / Integer; no
-`JSONB`, `BIGINT[]`, `LISTEN/NOTIFY`, etc.). Both backends pass the same
+The schema is intentionally portable. Both backends pass the same
 integration tests.
 
 ## Redis
 
-The session cache is optional but recommended. Without Redis, the server
-boots and accepts connections, but you'll see cache errors per connection
+The session cache is optional but recommended. Without it, the server
+boots and accepts connections; you'll see cache errors per connection
 in the log and reconnects can't reuse session UIDs.
 
 ```bash
-redis-server                         # default port 6379
+redis-server
 REDIS_SERVER=redis://127.0.0.1 target/release/muoxi_server
 ```
 
-Or with a different host:
+Or a different host:
 
 ```bash
 REDIS_SERVER=redis://redis.internal:6379 target/release/muoxi_server
 ```
 
-The docker-compose stack handles this automatically via the `redis`
+The docker-compose stack wires this automatically via the `redis`
 service hostname.
 
-## SQLite — production notes
+## SQLite in production
 
-SQLite is the default backend. It's surprisingly capable for MUDs:
+SQLite is the default. It's capable for the kinds of workloads a MUD
+generates:
 
-- **Concurrency**: WAL mode is enabled at connection time
-  ([`db::conn::configure`](../db/src/conn.rs)), giving you readers
-  that don't block on a writer.
-- **Single-writer limitation**: SQLite serializes writes. For a v0.1-shape
-  MUD (one process, single Tokio runtime), this isn't a bottleneck. If
-  you grow to a portal/server split (v0.2 roadmap) or a horizontally
-  scaled multi-process deployment, switch to Postgres.
-- **Foreign keys**: enabled at connection time. Cascading deletes work
-  the way you'd expect.
+- WAL mode is enabled at connection time, so readers don't block on a
+  writer.
+- Foreign keys are enabled, so cascading deletes work as expected.
+- Writes are serialized. For a single-process server this isn't a
+  bottleneck. If you grow into a portal/server split or scale across
+  processes, Postgres is the path.
 
 For backup:
 
@@ -153,41 +134,33 @@ sqlite3 data/world.db ".backup data/world.db.bak"
 
 ## Logging
 
-`muoxi_server` forces `RUST_LOG=info,warn,error,test` inside `main()`
-(via `unsafe { env::set_var(...) }`). Override at compile time or in your
-fork if you want different verbosity.
+`muoxi_server` forces `RUST_LOG=info,warn,error,test` inside `main()`.
+Override at compile time or in your fork.
 
-`pretty_env_logger` is the backend. Logs go to stderr.
-
-Important log lines to look for at boot:
+`pretty_env_logger` is the backend; logs go to stderr. The line you're
+looking for at boot is:
 
 ```
-DEV_AUTOLOGIN enabled: new connections skip auth and land in room uid=... as 'Dev'.
 MuOxi server listening on 0.0.0.0:8000
 ```
 
-If you don't see `MuOxi server listening`, it's probably a port-binding
-failure — check that `PROXY_ADDR` is reachable and not already in use.
+If you don't see it, it's almost always a port-binding failure.
 
 ## Resource files
 
-The server expects two files at runtime, relative to the CWD:
+The server expects `resources/welcome.txt` at runtime, relative to the
+CWD. The web client (`resources/web/index.html`) is embedded into
+`muoxi_web` at compile time via `include_str!`, so the file doesn't
+need to be present at runtime for the web binary — it's served from
+the binary itself.
 
-- `resources/welcome.txt` — login banner sent on connect
-- `resources/web/index.html` — **embedded at compile time** into `muoxi_web`
-  via `include_str!`, so the file doesn't need to be present at runtime for
-  the web binary; it's served from the binary itself
-
-If you replace `resources/welcome.txt`, rebuild and restart. The web
-client requires a rebuild because it's embedded.
+Replacing either requires a rebuild.
 
 ## Reverse proxy
 
-For TLS or a custom domain, terminate at nginx/caddy/Cloudflare in front
-of `muoxi_web`. The bridge speaks plain HTTP + WS on its bound port; the
-proxy handles HTTPS + WSS.
-
-Example caddy:
+For TLS or a custom domain, terminate at nginx, caddy, or Cloudflare
+in front of `muoxi_web`. The bridge speaks plain HTTP + WS on its
+bound port; the proxy handles HTTPS + WSS.
 
 ```
 mud.example.com {
@@ -195,29 +168,15 @@ mud.example.com {
 }
 ```
 
-The browser test client at `/` works through reverse proxies — it derives
-its WebSocket URL from `location.host`, so it just works.
+The bundled browser test client derives its WebSocket URL from
+`location.host`, so it works through reverse proxies without
+configuration.
 
-For raw TCP/telnet (`muoxi_server` on port 8000), proxying isn't really a
-thing — clients connect directly. Open the port through your firewall;
-no TLS at the protocol layer (MUD clients overwhelmingly don't support
-TLS-wrapped telnet anyway).
+Raw TCP/telnet (`muoxi_server` on port 8000) is opened directly. Most
+MUD clients don't speak TLS-wrapped telnet anyway.
 
-## Production hardening (things you'll want to add)
-
-The framework doesn't ship any of these — they're your responsibility:
-
-- Rate limiting on connection accept (e.g. via iptables / nftables / fail2ban)
-- Brute-force protection on auth (e.g. lockout after N failed passwords)
-- Persistent logging of in-world chat / commands
-- Backup automation for `data/world.db` or your Postgres
-- Monitoring (the server doesn't expose a `/metrics` endpoint yet)
-
-These are all reasonable contributions if you want to build them as
-opt-in modules.
-
-## Where to next
+## See also
 
 - [getting-started.md](getting-started.md) — first contact walkthrough
-- [development.md](development.md) — local dev loop for hacking on MuOxi
-- [roadmap.md](roadmap.md) — what's coming
+- [development.md](development.md) — local dev loop
+- [roadmap.md](roadmap.md) — where the project is headed

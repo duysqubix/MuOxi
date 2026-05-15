@@ -94,9 +94,9 @@ Some APIs are framework-internal; others are public extension points.
 
 **`Hook`**
 The trait downstream MUDs implement to listen for lifecycle events.
-Registered via `Registry::register_hook`. As of v0.1 only `at_login`
-and `at_disconnect` are fired by the engine; the rest are declared but
-unwired.
+Registered via `Registry::register_hook`. Today the engine fires
+`at_login` and `at_disconnect`; the other methods are part of the
+trait while their emission is being wired in.
 
 **`HookContext`**
 Read-mostly context handed to hook implementations: `&WorldApi`,
@@ -145,9 +145,8 @@ starting room (tagged `(starting-room, system)`) exists.
 
 **Session UID**
 A per-connection random ID generated at accept and persisted in Redis.
-Distinct from the character UID. The session UID is socket-tied; the
-character UID is in-world-tied. Plan 6 separated these two concepts;
-pre-Plan-6 code conflated them.
+Distinct from the character UID — session UID is socket-tied, character
+UID is in-world-tied.
 
 **`SessionConfig`**
 A small struct passed into each `process()` task, currently carrying
@@ -162,9 +161,9 @@ lookups (`objects_with_tag`) and as the storage backing for the
 **TypeClass**
 The trait describing an in-world entity *type* (as opposed to an
 instance). Pairs a `type_key` with default attributes, default tags,
-default command set, and a lock map. As of v0.1 only the defaults for
-the `"character"` type are auto-applied at creation; generic
-auto-application is on the v0.2 roadmap.
+default command set, and a lock map. Today, only `create_character`
+auto-applies defaults; for other types apply them yourself with a
+small helper (see [extension-guide.md](extension-guide.md#type-classes)).
 
 **`WEB_ADDR`**
 The bind address for `muoxi_web`. Default `127.0.0.1:8080`.

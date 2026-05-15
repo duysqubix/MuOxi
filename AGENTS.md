@@ -89,14 +89,20 @@ For the design rationale see [`docs/architecture.md`](docs/architecture.md).
 - **Workspace deps centralized** in `Cargo.toml` `[workspace.dependencies]`; members reference via `{ workspace = true }`.
 - **Commands and hooks go through `WorldApi`** — never `diesel::insert_into(...)` directly. Add typed methods to `WorldApi` if needed.
 
-## Anti-patterns (THIS project)
+## Things that catch people out
 
-- **DO NOT** hand-edit `db/src/schema.rs`. Regenerate via `diesel migration run` (target set in `diesel.toml`).
-- **DO NOT** bring back JSON-canonical state. The DB is the single source of truth.
-- **DO NOT** add a separate `characters` table. Characters are `objects` with `type_key = "character"`; the account link lives in `character_accounts`.
-- **DO NOT** add Postgres-only types (`BIGINT[]`, `JSONB`, `LISTEN/NOTIFY`, `to_tsvector`) to the core schema. Keep it portable.
-- **DO NOT** use `redis::Commands::set_multiple` — deprecated in 0.27; use `mset`.
-- **DO NOT** call `DatabaseHandler::connect()` from inside an async task without offloading. Diesel 2.x is sync-blocking.
+- `db/src/schema.rs` is generated; regenerate via `diesel migration run`
+  rather than editing it by hand. The output target is set in
+  `diesel.toml`.
+- The DB is the single source of truth. JSON files under `json/` are for
+  import/export payloads only.
+- There is no separate `characters` table. Characters are `objects` with
+  `type_key = "character"`; the account link lives in `character_accounts`.
+- The core schema stays portable between SQLite and Postgres — avoid
+  Postgres-only types (`BIGINT[]`, `JSONB`, `LISTEN/NOTIFY`, `to_tsvector`).
+- `redis::Commands::set_multiple` is deprecated in 0.27; use `mset`.
+- `DatabaseHandler::connect()` is Diesel-2.x sync-blocking. From async
+  contexts, offload it.
 
 ## Commands
 
