@@ -23,6 +23,8 @@ pub struct DatabaseHandler {
     pub accounts: structures::account::AccountHandler,
     /// handle to the Characters table
     pub characters: structures::character::CharacterHandler,
+    /// handle to the account_characters join table
+    pub account_characters: structures::account_character_link::AccountCharacterHandler,
 }
 
 impl DatabaseHandler {
@@ -38,6 +40,8 @@ impl DatabaseHandler {
             handle,
             accounts: structures::account::AccountHandler,
             characters: structures::character::CharacterHandler,
+            account_characters:
+                structures::account_character_link::AccountCharacterHandler,
         }
     }
 }
