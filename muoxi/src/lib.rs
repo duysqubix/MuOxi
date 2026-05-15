@@ -84,15 +84,38 @@ pub async fn display_welcome<'a>(client: &'a mut Client) -> LinesCodecResult<()>
     Ok(())
 }
 
-/// Remove the client from the server roster and clear its Redis socket entry.
-pub async fn client_cleanup(uid: UID, server: &Arc<Mutex<Server>>, cache: CacheSocket) {
-    let mut server = server.lock().await;
-    server.clients.remove(&uid);
-
+/// Remove the client from the server roster, clear its Redis socket entry,
+/// and fire `at_disconnect` for every registered hook (when `account_uid`
+/// is `Some`, i.e. the session had completed login).
+pub async fn client_cleanup(
+    uid: UID,
+    account_uid: Option<UID>,
+    server: &Arc<Mutex<Server>>,
+    registry: Arc<Registry>,
+    cache: CacheSocket,
+) {
+    {
+        let mut server = server.lock().await;
+        server.clients.remove(&uid);
+    }
     if cache.destruct().is_ok() {
-        println!("Remove client with uid: {}", uid);
+        println!("Removed client uid: {}", uid);
     } else {
-        println!("Unable to remove client: {} from redis.", uid);
+        println!("Unable to remove client {} from redis.", uid);
+    }
+    if let Some(acc) = account_uid {
+        let world = registry.world.clone();
+        let world_ref: &WorldApi = world.as_ref();
+        registry
+            .hooks
+            .emit(|h| async move {
+                let mut ctx = crate::hooks::HookContext {
+                    world: world_ref,
+                    session_uid: Some(uid),
+                };
+                h.at_disconnect(&mut ctx, acc).await
+            })
+            .await;
     }
 }
 
@@ -166,6 +189,6 @@ pub async fn process(
         }
     }
 
-    client_cleanup(uid, &server, cache).await;
+    client_cleanup(uid, client.account_uid, &server, registry, cache).await;
     Ok(())
 }
