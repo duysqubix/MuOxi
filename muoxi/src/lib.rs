@@ -9,6 +9,8 @@
 //!
 //! See [`registry::Registry`] for the central extension surface.
 
+#[path = "server/auth.rs"]
+pub mod auth;
 #[path = "server/cmds.rs"]
 pub mod cmds;
 #[path = "server/commands/mod.rs"]

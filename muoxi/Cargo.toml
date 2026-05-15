@@ -27,6 +27,7 @@ serde_json = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
 parking_lot = { workspace = true }
+argon2 = { workspace = true }
 
 [[bin]]
 name = "muoxi_server"
