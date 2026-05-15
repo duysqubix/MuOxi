@@ -1,140 +1,137 @@
-# MUOXI KNOWLEDGE BASE
+# Repo code map
 
-**Generated:** 2026-05-07T00:32:44Z
-**Commit:** 6c4384e (working tree, post-modernization)
-**Branch:** master
+This file is the per-repo orientation. New contributors and AI agents
+should read this to find their way around. For end-user / framework-user
+docs, see [`docs/`](docs/).
 
-## OVERVIEW
+Per-subsystem invariants live in the co-located `AGENTS.md` files —
+[`db/AGENTS.md`](db/AGENTS.md), [`muoxi/AGENTS.md`](muoxi/AGENTS.md),
+[`muoxi/src/server/AGENTS.md`](muoxi/src/server/AGENTS.md).
 
-MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 member crates. Tokio 1.x + Diesel 2.x (**SQLite default**, Postgres optional via `db-postgres` feature) + Redis 0.27 + tokio-tungstenite. Toolchain pinned to stable via [`rust-toolchain.toml`](file:///home/duys/.repos/MuOxi/rust-toolchain.toml). Default builds need **zero system packages** thanks to bundled `libsqlite3-sys`.
+## What this is
 
-## STRUCTURE
+A Rust MUD framework. Cargo workspace, three member crates
+(`muoxi`, `db`, `examples/extension`). Tokio 1.x + Diesel 2.x (SQLite
+default, Postgres opt-in) + Redis 0.27 + tokio-tungstenite. Toolchain
+pinned to stable via [`rust-toolchain.toml`](rust-toolchain.toml). Default
+build needs zero system packages thanks to bundled `libsqlite3-sys`.
+
+For the design rationale see [`docs/architecture.md`](docs/architecture.md).
+
+## Tree
 
 ```
 .
-├── muoxi/         # 2-binary app crate (server, web)
-├── db/            # shared library: SQLite/Postgres + Redis
-├── benchmarks/    # custom non-Criterion benchmark harness
-├── tester/        # sandbox/playground binary - NOT a test suite
-├── migrations/    # Diesel SQL migrations (accounts + objects/attributes/tags/character_accounts)
-├── config/        # runtime ini (muoxi.ini)
-├── data/          # SQLite world.db lives here at runtime (gitignored)
-├── json/          # import/export payloads only (NOT runtime canonical state)
-├── resources/     # text assets (welcome.txt)
-├── bin/           # empty marker dir
-├── .media/        # logo (cog.png)
-├── Cargo.toml              # workspace root + [workspace.dependencies]
-├── rust-toolchain.toml     # pins toolchain to stable
-├── docker-compose.yml      # dev stack: server + redis (no postgres)
-├── Dockerfile              # multi-stage rust:1.85 builder + slim runtime
-├── dev-entrypoint.sh       # container entrypoint (exec passthrough)
-├── diesel.toml             # Diesel CLI -> db/src/schema.rs
-└── .travis.yml             # legacy CI (NO active workflows)
+├── muoxi/              # application crate (bins + lib)
+├── db/                 # persistence library (Diesel + Redis)
+├── examples/extension/ # downstream MUD embedding demo
+├── migrations/         # Diesel SQL — embedded at compile time
+├── resources/          # welcome banner + browser test client
+├── data/               # SQLite world.db lands here at runtime (gitignored)
+├── docs/               # end-user / framework-user documentation
+├── .media/             # logo asset
+├── Cargo.toml          # workspace root + [workspace.dependencies]
+├── Cargo.lock          # tracked (workspace ships binaries)
+├── rust-toolchain.toml # pinned stable
+├── docker-compose.yml  # dev stack: muoxi_server + muoxi_web + redis
+├── Dockerfile          # multi-stage rust:1.85 builder + slim runtime
+└── diesel.toml         # Diesel CLI → db/src/schema.rs
 ```
 
-## WHERE TO LOOK
+## Where to look
 
 | Task | Location |
-|------|----------|
-| TCP proxy / connection lifecycle | [`muoxi/src/server/`](file:///home/duys/.repos/MuOxi/muoxi/src/server/) |
-| Game logic (echo only today) | [`muoxi/src/server/engine.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/engine.rs) |
-| WebSocket bridge | [`muoxi/src/webserver/webserver.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/webserver/webserver.rs) |
-| Account table / Diesel ORM | [`db/src/structures.rs`](file:///home/duys/.repos/MuOxi/db/src/structures.rs), [`db/src/schema.rs`](file:///home/duys/.repos/MuOxi/db/src/schema.rs) |
-| Generic in-world objects (rooms/items/mobs/characters) | [`db/src/objects/`](file:///home/duys/.repos/MuOxi/db/src/objects/) |
-| Backend selection + connection | [`db/src/conn.rs`](file:///home/duys/.repos/MuOxi/db/src/conn.rs) |
-| Redis cache wrapper + key naming | [`db/src/cache_structures/`](file:///home/duys/.repos/MuOxi/db/src/cache_structures/) |
-| Workspace dependency versions | [`Cargo.toml`](file:///home/duys/.repos/MuOxi/Cargo.toml) `[workspace.dependencies]` |
-| Add new persistent table | new module under `db/src/`, edit `db/src/lib.rs`, write migration in `migrations/<date>_*/`, run `diesel migration run` |
-| Welcome screen text | `resources/welcome.txt` |
-| Add new comm protocol | new module in `muoxi/src/`, register binary in `muoxi/Cargo.toml` |
-| Run benchmark | `cargo run --bin muoxi_benchmarks` (needs `benchmarks/db_100_000.json` fixture, NOT in repo) |
+| --- | --- |
+| TCP server / connection lifecycle / state machine | [`muoxi/src/server/`](muoxi/src/server/) |
+| Game-logic dispatch (Registry → lock check → command) | [`muoxi/src/server/cmds.rs`](muoxi/src/server/cmds.rs) |
+| WebSocket bridge + browser test client | [`muoxi/src/webserver/webserver.rs`](muoxi/src/webserver/webserver.rs) |
+| Account table + auth helpers | [`db/src/structures.rs`](db/src/structures.rs), [`muoxi/src/server/auth.rs`](muoxi/src/server/auth.rs) |
+| Generic in-world objects (rooms / items / mobs / etc.) | [`db/src/objects/`](db/src/objects/) |
+| Backend selection (sqlite vs postgres feature) | [`db/src/conn.rs`](db/src/conn.rs) |
+| Redis cache wrapper + key naming | [`db/src/cache_structures/`](db/src/cache_structures/) |
+| Workspace dependency versions | [`Cargo.toml`](Cargo.toml) `[workspace.dependencies]` |
+| Welcome screen text | [`resources/welcome.txt`](resources/welcome.txt) |
+| Adding a new persistent table | new module under `db/src/`, edit `db/src/lib.rs`, write migration in `migrations/<date>_*/` |
+| Adding a new comm protocol | new module in `muoxi/src/`, register binary in `muoxi/Cargo.toml` |
 
-## CODE MAP
+## Code map
 
 | Symbol | Location | Role |
-|--------|----------|------|
-| `Conn` (type alias) | `db/src/conn.rs` | `SqliteConnection` (default) or `PgConnection` (with `db-postgres`). Reads `DATABASE_URL`; defaults to `data/world.db` for SQLite. |
-| `DatabaseHandler` | `db/src/lib.rs` | Holds one `Conn` + `accounts`, `objects`, `attributes`, `tags`, `character_accounts` handlers. Diesel 2.x ops require `&mut handle`. |
-| `Cache` | `db/src/cache.rs` | Redis connection factory; reads `REDIS_SERVER`, default `redis://127.0.0.1` |
-| `CacheSocket` | `db/src/cache_structures/socket.rs` | Per-client Redis-backed socket state |
-| `Cachable` trait | `db/src/cache_structures/mod.rs` | Redis serialize via `Type:UID:field` keys |
-| `Account` | `db/src/structures.rs` | Login identity Diesel record |
-| `Object`, `ObjectRepo` | `db/src/objects/object.rs` | Generic in-world entity (`type_key` discriminates rooms/items/characters/...). Repo wraps Diesel CRUD. |
-| `ObjectAttribute`, `AttributeRepo` | `db/src/objects/attribute.rs` | Per-object key→JSON-text bag. Values are `serde_json::Value` at the Rust API boundary. |
-| `ObjectTag`, `TagRepo` | `db/src/objects/tag.rs` | Per-object (key, category) labels; idempotent add, cross-object lookup. |
-| `CharacterAccount`, `CharacterAccountRepo` | `db/src/objects/character_account.rs` | Link table: character object → owning account, with ordinal. |
-| `Server`, `Client`, `Comms` | `muoxi/src/server/comms.rs` | Connection state shared via `Arc<Mutex<Server>>` |
-| `ConnStates` | `muoxi/src/server/states.rs` | Complete 8-state login + character-select machine. AwaitingName → AwaitingPassword/AwaitingNewName → … → MainMenu → Playing → Quit. |
-| `auth::{hash_password, verify_password, AuthBuffer}` | `muoxi/src/server/auth.rs` | argon2id hashing + per-session credential scratch space + name/password validators. |
-| `Registry` | `muoxi/src/server/registry.rs` | Central index of TypeClasses, Commands, Hooks. Threaded into every session via `Arc<Registry>`. |
-| `WorldApi` | `muoxi/src/server/world.rs` | DB facade for command handlers. Wraps `DatabaseHandler` in `Arc<Mutex<>>`. |
-| `TypeClass` trait + 5 built-ins | `muoxi/src/server/typeclass.rs` | In-world type definitions (Character, Room, Item, Exit, Mob). |
-| `Hook` trait + `Hooks` | `muoxi/src/server/hooks.rs` | Lifecycle event listeners (at_login, at_disconnect, at_pre/post_move, ...) |
-| `Command` trait + `CommandContext` | `muoxi/src/server/prelude.rs` | Per-state command dispatch via the Registry |
-| Built-in commands | `muoxi/src/server/commands/` | `look`, `say`, `quit`, `who` |
-| `gen_uid()` | `db/src/utils.rs` | i64 UID = 32-bit unix-timestamp `<<` 32 \| 32-bit random |
+| --- | --- | --- |
+| `Conn` | [`db/src/conn.rs`](db/src/conn.rs) | Type alias resolved by active feature: `SqliteConnection` (default) or `PgConnection`. Reads `DATABASE_URL`; defaults to `data/world.db`. |
+| `DatabaseHandler` | [`db/src/lib.rs`](db/src/lib.rs) | Holds one `Conn` + `accounts`, `objects`, `attributes`, `tags`, `character_accounts` handlers. Runs embedded migrations on `connect()`. |
+| `Cache` | [`db/src/cache.rs`](db/src/cache.rs) | Redis connection factory; reads `REDIS_SERVER`. |
+| `CacheSocket` | [`db/src/cache_structures/socket.rs`](db/src/cache_structures/socket.rs) | Per-client Redis-backed socket state. |
+| `Cachable` trait | [`db/src/cache_structures/mod.rs`](db/src/cache_structures/mod.rs) | Redis (de)serialize via `Type:UID:field` keys. |
+| `Account` | [`db/src/structures.rs`](db/src/structures.rs) | Login identity Diesel record. |
+| `Object`, `ObjectRepo` | [`db/src/objects/object.rs`](db/src/objects/object.rs) | Generic in-world entity (`type_key` discriminates). |
+| `ObjectAttribute`, `AttributeRepo` | [`db/src/objects/attribute.rs`](db/src/objects/attribute.rs) | Per-object key → JSON-text bag. |
+| `ObjectTag`, `TagRepo` | [`db/src/objects/tag.rs`](db/src/objects/tag.rs) | Per-object `(key, category)` labels. |
+| `CharacterAccount`, `CharacterAccountRepo` | [`db/src/objects/character_account.rs`](db/src/objects/character_account.rs) | Character ⇄ Account link with ordinal. |
+| `Server`, `Client`, `Comms` | [`muoxi/src/server/comms.rs`](muoxi/src/server/comms.rs) | Per-connection state. `Server.clients` is the shared roster. |
+| `ConnStates` | [`muoxi/src/server/states.rs`](muoxi/src/server/states.rs) | 8-state login + character-select machine. |
+| `auth::{hash_password, verify_password, AuthBuffer}` | [`muoxi/src/server/auth.rs`](muoxi/src/server/auth.rs) | argon2id + per-session credential scratch + validators. |
+| `Registry` | [`muoxi/src/server/registry.rs`](muoxi/src/server/registry.rs) | Central index of TypeClasses, Commands, Hooks. |
+| `WorldApi` | [`muoxi/src/server/world.rs`](muoxi/src/server/world.rs) | DB facade for command/hook handlers. |
+| `TypeClass` + 5 built-ins | [`muoxi/src/server/typeclass.rs`](muoxi/src/server/typeclass.rs) | In-world type defs (character / room / item / exit / mob). |
+| `Hook` + `Hooks` | [`muoxi/src/server/hooks.rs`](muoxi/src/server/hooks.rs) | Lifecycle event listeners. Only `at_login`/`at_disconnect` are fired today. |
+| `Command` + `CommandContext` | [`muoxi/src/server/prelude.rs`](muoxi/src/server/prelude.rs) | Player command trait + per-invocation context. |
+| Built-in commands | [`muoxi/src/server/commands/`](muoxi/src/server/commands/) | `look`, `say`, `quit`, `who`. |
+| `gen_uid()` | [`db/src/utils.rs`](db/src/utils.rs) | `i64` UID = `(unix_secs << 32) | rand32`. |
 
-## CONVENTIONS
+## Conventions
 
-- **Edition 2024** in every member crate. MSRV 1.85.
-- **Tokio 1.x** + **Diesel 2.x** + **Redis 0.27**. Toolchain pinned to stable via `rust-toolchain.toml`.
-- Async traits via `tokio::io::AsyncReadExt`/`AsyncWriteExt` (NO `tokio::prelude`). Stream extensions via `tokio_stream::StreamExt` and `futures_util::SinkExt`.
-- `serde_json` always uses the `preserve_order` feature.
-- Logging: `pretty_env_logger` 0.5 + `log` 0.4 macros; `RUST_LOG` set inside `staging_proxy::main` (wrapped in `unsafe { env::set_var(...) }` per modern std API).
-- DB UID type: `i64` (`db::utils::UID`). Schema enforces `BIGINT NOT NULL CHECK (uid > 0)`.
-- Diesel query connection arg is now `&mut Conn` (Diesel 2.x). All `DatabaseHandlerExt` methods take `conn: &mut Conn`.
-- The `db` library is consumed by every other crate via `path = "../db"`.
-- Multi-binary pattern: `muoxi` ships 2 bins (`muoxi_server`, `muoxi_web`) via `[[bin]]` with custom paths into nested `src/<bin>/` dirs - NOT the standard `src/bin/`.
-- Dependency versions are centralized in workspace root `[workspace.dependencies]`; each member crate just reads `{ workspace = true }`.
-- **Backend is SQLite by default**. Postgres requires `--no-default-features --features db-postgres` AND `libpq-dev` on the host.
+- **Edition 2024**, stable Rust 1.85, pinned via `rust-toolchain.toml`.
+- **Tokio 1.x** — individual `AsyncReadExt` / `AsyncWriteExt` imports, no `tokio::prelude`.
+- **Diesel 2.x** — every query takes `&mut Conn`, macros namespaced (`diesel::table!`).
+- **SQLite default** — Postgres opt-in via `--features db-postgres` (requires `libpq-dev`). A compile-error guard in `db/src/conn.rs` enforces exactly one backend.
+- **`db` crate is `#![deny(missing_docs)]`** — every public item gets a docstring.
+- **Workspace deps centralized** in `Cargo.toml` `[workspace.dependencies]`; members reference via `{ workspace = true }`.
+- **Commands and hooks go through `WorldApi`** — never `diesel::insert_into(...)` directly. Add typed methods to `WorldApi` if needed.
 
-## ANTI-PATTERNS (THIS PROJECT)
+## Anti-patterns (THIS project)
 
-- **DO NOT add `cargo test` workflows.** Integration tests live under `db/tests/`; ordinary unit `#[test]` modules are sparse. Run with `cargo test -p db --features db-sqlite`.
-- **DO NOT use `tester/src/main.rs` as a code reference.** It is a deliberately small Redis round-trip.
-- **DO NOT change `db/src/schema.rs` by hand.** Regenerate via `diesel migration run` (output target set in `diesel.toml`).
-- **DO NOT bring back JSON-canonical / watchdog.** Database is the single source of truth. `json/` is import/export only.
-- **DO NOT add a separate `characters` table.** Characters are objects with `type_key = "character"`; the account link lives in `character_accounts`.
-- **DO NOT bypass the repos.** Engine code calls `db.objects.create(...)`, never `diesel::insert_into(objects::table)` directly.
-- **DO NOT switch off `rust-toolchain.toml`.** Local nightly may regress with bleeding edge crate features; pinning to stable is the contract.
+- **DO NOT** hand-edit `db/src/schema.rs`. Regenerate via `diesel migration run` (target set in `diesel.toml`).
+- **DO NOT** bring back JSON-canonical state. The DB is the single source of truth.
+- **DO NOT** add a separate `characters` table. Characters are `objects` with `type_key = "character"`; the account link lives in `character_accounts`.
+- **DO NOT** add Postgres-only types (`BIGINT[]`, `JSONB`, `LISTEN/NOTIFY`, `to_tsvector`) to the core schema. Keep it portable.
+- **DO NOT** use `redis::Commands::set_multiple` — deprecated in 0.27; use `mset`.
+- **DO NOT** call `DatabaseHandler::connect()` from inside an async task without offloading. Diesel 2.x is sync-blocking.
 
-## COMMANDS
+## Commands
 
 ```bash
-cargo build --workspace               # SQLite default; zero system packages needed
-cargo build --workspace --no-default-features --features db-postgres  # requires libpq-dev
-cargo check --workspace               # link-free type check
-cargo clippy --workspace --no-deps    # lints; style warnings only
-cargo test -p db --features db-sqlite # SQLite in-memory integration tests
+cargo build --workspace                                              # SQLite default, no system deps
+cargo build --no-default-features --features db-postgres             # Postgres (needs libpq-dev)
+cargo check --workspace
+cargo clippy --workspace --no-deps
+cargo test -p db --features db-sqlite                                # in-memory SQLite roundtrip tests
+cargo test -p muoxi --test registry                                  # registry smoke tests
+cargo test -p muoxi --lib auth                                       # argon2 + validators
 
-cargo run --bin muoxi_server          # 127.0.0.1:8000 unified server (login + game)
-cargo run --bin muoxi_web             # ws://127.0.0.1:8080 → tcp 127.0.0.1:8000 bridge
-cargo run --bin muoxi_sandbox         # tester crate (needs Redis running)
-cargo run --bin muoxi_benchmarks      # benchmark crate (needs fixture; see benchmarks/AGENTS.md)
+cargo run --bin muoxi_server                                         # 127.0.0.1:8000 unified server
+cargo run --bin muoxi_web                                            # ws://127.0.0.1:8080 + browser test client
+cargo run --bin muoxi-example-extension                              # downstream-MUD embedding demo
 
-docker compose up server              # SQLite-backed dev stack (server + redis)
+docker compose up                                                    # full dev stack
+DEV_AUTOLOGIN=1 docker compose up                                    # skip auth for fast iteration
 ```
 
-The first run creates `data/world.db` (SQLite). With `db-postgres`, set `DATABASE_URL` and run `diesel migration run` manually (CLI install: `cargo install diesel_cli --no-default-features --features postgres`).
-
-## ENV VARS
+## Env vars
 
 | Var | Default | Reader |
-|-----|---------|--------|
+| --- | --- | --- |
 | `DATABASE_URL` | `data/world.db` (SQLite) / `postgres://muoxi:muoxi@localhost/muoxi` (PG) | `db::conn::establish` |
 | `REDIS_SERVER` | `redis://127.0.0.1` | `Cache::new` |
-| `PROXY_ADDR` | `127.0.0.1:8000` | `server::main`, `webserver::main` (forwards WS → TCP at PROXY_ADDR) |
-| `WEB_ADDR` | `127.0.0.1:8080` | `webserver::main` (WS bind addr) |
-| `RUST_LOG` | `info,warn,error,test` | set inside `server::main` |
+| `PROXY_ADDR` | `127.0.0.1:8000` | `muoxi_server`, `muoxi_web` (outbound target) |
+| `WEB_ADDR` | `127.0.0.1:8080` | `muoxi_web` (bind) |
+| `DEV_AUTOLOGIN` | unset | `muoxi_server` — when set, skips auth state machine |
+| `RUST_LOG` | `info,warn,error,test` | forced inside `muoxi_server::main` |
 
-## NOTES / GOTCHAS
+## Notes
 
-- **Default builds need zero system packages.** SQLite ships bundled via `libsqlite3-sys` with the `bundled` feature. Postgres backend requires `libpq-dev` ONLY when selecting `--features db-postgres`.
-- `muoxi_web` listens on `WEB_ADDR` (default `127.0.0.1:8080`) and forwards to `PROXY_ADDR` (default `127.0.0.1:8000`).
-- `muoxi_web` is WS-only (no HTML serving).
-- `server/main.rs` reads `resources/welcome.txt` with a CWD-relative path - run binaries from repo root.
-- `benchmarks/db_100_000.json` fixture is referenced but NOT committed - benchmark crate won't run out-of-the-box.
-- Removed: `db/src/clients.rs`, `muoxi/src/staging/copyover.rs`, `muoxi/src/watchdog/`, `muoxi/src/engine/`, `muoxi/src/staging/` (merged into `muoxi/src/server/`), `Dockerfile.postgres`, `init-muoxi-db.sql`, `.postgres-setup`.
-- SQLite WAL mode + foreign keys are enabled automatically at connection time (see `db::conn::configure`).
-- Account.characters BIGINT[] (PG-only) was replaced first by `account_characters` (Plan 1) and then by `character_accounts` (Plan 3, linking object UIDs since characters are now Objects).
-- Schema migrations apply identically to SQLite and Postgres backends.
+- SQLite WAL mode + foreign keys are enabled automatically (see `db::conn::configure`).
+- Embedded migrations run on `DatabaseHandler::connect()` — no `diesel migration run` needed at runtime.
+- Schema is portable across SQLite and Postgres backends.
+- `muoxi_web` is dual-purpose on a single port: HTTP GET returns the browser test client (`resources/web/index.html`, embedded at compile time); WS upgrade bridges to TCP backend.
+- `muoxi_server` binds to `127.0.0.1` by default — set `PROXY_ADDR=0.0.0.0:8000` (or use the docker compose path) for external access.

@@ -1,64 +1,34 @@
 # ![muoxi_logo][logo]
 
-# MuOxi — a MUD/MU* framework in Rust
+# MuOxi — a MUD framework in Rust
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 MuOxi is a framework for building [online multiplayer text games][wikimudpage]
-(MUDs, MUSHes, MUCKs — the MU\* family). The framework provides the boring
-parts — TCP listener, WebSocket bridge, login state machine, persistent object
-model, attribute/tag bags, character/account binding — so downstream developers
-can focus on the *world*: rooms, items, mobs, combat, magic, economy.
+(MUDs, MUSHes, MUCKs — the MU\* family). It ships the parts every MUD
+needs — sockets, login, persistence, command dispatch, world state — and
+gets out of the way for the parts that are *your* MUD: combat, magic,
+crafting, economy, plot.
 
-The project draws from [Evennia][evennia]'s philosophy (generic typed
-objects, freeform attributes, hook-based extension) but is built around Rust's
-async runtime and type system for the throughput and safety they bring.
+The closest spiritual ancestor is [Evennia][evennia] (Python). MuOxi
+borrows the design — generic typed objects, freeform attributes, hook-based
+extension — and brings Rust's type system, async runtime, and persistence
+story along.
 
 ```
-                                              ┌────────────┐
-   tt++ / telnet      ─tcp→   ┌──────────────┐│   redis    │ (transient
-   browser / WS       ─http→  │ muoxi_server │└─────┬──────┘  session cache)
-   muoxi_web bridge   ─ws──→  └──────┬───────┘      │
-                                     │              ▼
-                                     ▼        ┌────────────┐
-                              ┌────────────┐  │  Diesel    │
-                              │   engine   │←→│  SQLite /  │
-                              │   (rust)   │  │  Postgres  │
-                              └────────────┘  └────────────┘
+                                          ┌────────────┐
+   tt++ / telnet      ─tcp→  ┌───────────┐│   redis    │
+   browser / WS       ─http→ │muoxi_server│└────┬───────┘
+   muoxi_web bridge   ─ws──→ └─────┬─────┘     │
+                                   │           ▼
+                                   ▼     ┌────────────┐
+                            ┌──────────┐ │  Diesel    │
+                            │ Registry │ │  SQLite    │
+                            └──────────┘ │  (default) │
+                              types,     │   or       │
+                              cmds,      │  Postgres  │
+                              hooks      └────────────┘
 ```
-
-## Status — bare-bones MUD shipped (May 2026)
-
-This project went dormant for several years. As of May 2026 it's back in
-active development and a runnable bare-bones MUD now ships off `master`.
-
-**What works today:**
-
-- TCP/telnet server on `127.0.0.1:8000` and WebSocket bridge on
-  `127.0.0.1:8080` with a built-in in-browser test client (vanilla JS, no
-  build step).
-- **Full account + character flow**: argon2id password hashing, persistent
-  accounts, multiple characters per account, character list/select/create
-  via a `MainMenu` state. Reconnect with credentials and your character
-  comes back.
-- Generic object/attribute/tag persistence layer (Evennia-style) backed by
-  SQLite (default) or Postgres (opt-in). Embedded migrations run automatically
-  at server startup — no `diesel migration run` required.
-- Command + Hook + TypeClass registry. Five built-in `TypeClass`es
-  (Character, Room, Item, Exit, Mob) and four built-in commands (`look`,
-  `say`, `quit`, `who`). Downstream MUDs register their own via
-  `Registry::register_*`.
-- Lifecycle hooks: `at_login` fires on successful auth; `at_disconnect`
-  fires on logged-in session end.
-- `DEV_AUTOLOGIN=1` mode: skips the auth flow and lands new connections
-  in the seeded starter room as a throwaway `Dev` character. Useful for
-  framework development without typing credentials every time.
-- Redis-backed transient session cache (session UID, addr).
-- Single-binary Docker stack (`docker compose up`).
-- Toolchain pinned to stable Rust 1.85; default build needs **zero system
-  packages** (SQLite is bundled).
-
-**What's still on the roadmap** — see [Roadmap](#roadmap).
 
 ## Quick start
 
@@ -68,47 +38,17 @@ cd MuOxi
 docker compose up
 ```
 
-Then connect any of three ways:
+Then connect:
 
-| Surface       | URL                           | Notes                                         |
-| ------------- | ----------------------------- | --------------------------------------------- |
-| Browser       | `http://localhost:8080`       | Loads a vanilla-JS WS test client             |
-| Telnet / tt++ | `127.0.0.1:8000`              | `telnet 127.0.0.1 8000` or `tt++` `#session`  |
-| WS client     | `ws://localhost:8080`         | `wscat -c ws://localhost:8080` and any sender |
+| Surface | URL | Notes |
+| --- | --- | --- |
+| Browser | <http://localhost:8080> | In-browser WebSocket terminal |
+| Telnet | `telnet 127.0.0.1 8000` | Or any MUD client |
+| WS CLI | `wscat -c ws://localhost:8080` | Useful for scripting |
 
-First-time session:
-
-```
-Enter your account name to log in, or type `new` to create one:
-> new
-Choose an account name (3-32 chars, alphanumeric, start with letter):
-> alice
-Password (6+ chars, no whitespace):
-> hunter2
-Confirm password:
-> hunter2
-Account alice created.
-Type `new <name>` to create your first character, or `quit`.
-
-> new Sir_Reginald
-Created Sir_Reginald. Entering world.
-
-> look
-[Limbo]
-You stand in a featureless void. The air feels still and timeless.
-A polished stone sits at your feet, and a tired-looking goblin slumps nearby.
-Here you see:
-  a polished stone
-  a tired-looking goblin
-
-> say Hail!
-You say, "Hail!"
-
-> quit
-```
-
-Reconnect later as `alice` with password `hunter2` and your character is
-still there.
+Create an account, create a character, walk into "Limbo." Disconnect,
+reconnect, and your character is still there. The full walkthrough is in
+[docs/getting-started.md](docs/getting-started.md).
 
 If host ports 8000 / 8080 are taken:
 
@@ -116,203 +56,68 @@ If host ports 8000 / 8080 are taken:
 MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 docker compose up
 ```
 
-The first run creates `data/world.db` (SQLite) inside a named docker volume
-and applies migrations automatically. A starting room ("Limbo") plus a sample
-item and mob are seeded on first boot.
-
-### Dev shortcut
-
-If you're working on the framework and don't want to type credentials each
-restart, `DEV_AUTOLOGIN=1` skips the auth flow and drops new connections
-straight into `Playing` as a throwaway `Dev` character:
+For fast framework iteration without typing credentials each restart:
 
 ```bash
 DEV_AUTOLOGIN=1 docker compose up
 ```
 
-## Building from source
+## What MuOxi provides
 
-```bash
-cargo build --workspace                 # SQLite default; zero system packages
-cargo run --bin muoxi_server            # 127.0.0.1:8000 — login + game in one process
-cargo run --bin muoxi_web               # ws://127.0.0.1:8080 → tcp 127.0.0.1:8000
-```
+- TCP + WebSocket connectivity with a built-in browser test client
+- argon2id authentication with full account / character creation flow
+- Persistent state via Diesel ORM — SQLite by default (zero system
+  deps), Postgres opt-in
+- Generic Object / Attribute / Tag model — add new in-world types
+  without schema migrations
+- A `Registry` of `TypeClass`es, commands, and hooks — the extension
+  surface downstream MUDs register against
+- 5 built-in TypeClasses (Character, Room, Item, Exit, Mob), 4 built-in
+  commands (`look`, `say`, `quit`, `who`)
+- `at_login` / `at_disconnect` lifecycle hooks
+- Embedded migrations — fresh installs work out of the box
+- Toolchain pinned to stable Rust 1.85
 
-Connect with `telnet 127.0.0.1 8000` or your favourite MUD client.
+## What MuOxi does NOT provide
 
-### Optional: Postgres backend
+These are deliberately out of scope — they belong in *your* MUD, not the
+framework:
 
-For deployments with multiple writers or replicas, opt into Postgres at compile
-time:
+- A combat system • A magic / spell / skill system • An economy or
+  currency • A quest engine • A specific theme or content beyond the
+  placeholder starting room • Default permission roles beyond the tiny
+  lock DSL • A world-building / OLC system • Localization
 
-```bash
-sudo apt install libpq-dev              # or your platform's libpq package
-cargo build --no-default-features --features db-postgres
-DATABASE_URL=postgres://muoxi:muoxi@localhost/muoxi \
-  cargo run --bin muoxi_server
-```
+See [docs/roadmap.md](docs/roadmap.md) for the full scope discussion.
 
-The same migrations under `migrations/` apply to both backends.
+## Documentation
 
-### Optional: Redis
+| If you want to… | Read |
+| --- | --- |
+| Build a MUD on top of MuOxi | [docs/getting-started.md](docs/getting-started.md) |
+| Understand the design | [docs/architecture.md](docs/architecture.md) |
+| Know which extension points exist | [docs/extension-guide.md](docs/extension-guide.md) |
+| Build out your world | [docs/world-building.md](docs/world-building.md) |
+| Deploy MuOxi | [docs/deployment.md](docs/deployment.md) |
+| Hack on the framework itself | [docs/development.md](docs/development.md) |
+| See the roadmap | [docs/roadmap.md](docs/roadmap.md) |
+| Look up a term | [docs/glossary.md](docs/glossary.md) |
 
-MuOxi caches per-connection socket state in Redis. The server boots without
-Redis, but you'll see cache errors in the log. For local dev:
+## Project status
 
-```bash
-redis-server                            # default port 6379
-REDIS_SERVER=redis://127.0.0.1 cargo run --bin muoxi_server
-```
-
-The supplied `docker compose` already wires Redis as a sidecar service.
-
-## Architecture
-
-MuOxi is built as a Cargo workspace with four member crates:
-
-| Crate          | Role                                                                  |
-| -------------- | --------------------------------------------------------------------- |
-| `muoxi`        | App crate; ships `muoxi_server` (TCP) and `muoxi_web` (WS bridge)     |
-| `db`           | Persistence + caching library: Diesel + Redis. SQLite default.        |
-| `benchmarks`   | Standalone non-Criterion benchmark harness                            |
-| `tester`       | Sandbox binary for manual exploration (NOT a test suite)              |
-
-### Persistence model
-
-The DB has two layers:
-
-1. **Canonical store** — SQLite (or Postgres) accessed via Diesel ORM.
-2. **Transient cache** — Redis holds per-session ephemeral state (socket
-   address, UID). Sessions survive Redis going down; nothing persistent is
-   ever written there.
-
-### Object model
-
-Every in-world entity (rooms, items, mobs, exits, characters, NPCs, plus any
-type a downstream framework user defines) is a row in a single `objects`
-table, discriminated by a `type_key` text column. Per-entity gameplay state
-lives in two satellite tables:
-
-- `object_attributes` — freeform key→JSON-text bag (set HP, set loot, set
-  description, …)
-- `object_tags` — labels with optional category, used for grouping and lookup
-  (find all rooms tagged `safe-zone`)
-
-This means **adding a new in-world type does not require a schema migration**.
-You pick a `type_key`, you call `db.objects.create(conn, "weapon", "Sword", room.uid)`,
-and you stash type-specific state in `db.attributes.set(uid, "damage", json!(7))`.
-
-Login identity (accounts, password hashes, email) lives in its own typed
-`accounts` table — it's fundamentally different from in-world state.
-
-### Topology
-
-For v0.1, `muoxi_server` is a single Tokio process holding the TCP listener,
-login state machine, and game logic. `muoxi_web` is a thin protocol adapter
-that bridges WebSocket clients to the same TCP backend.
-
-The portal/server split (separate proxy + engine processes with a framed
-protocol enabling hot-reload) is on the v0.2 roadmap.
-
-## Roadmap
-
-The path to v0.1 is moving along these axes:
-
-| Axis                                              | Status         |
-| ------------------------------------------------- | -------------- |
-| SQLite as default backend; drop JSON/watchdog     | ✅ done        |
-| Topology collapse → unified `muoxi_server`        | ✅ done        |
-| Generic Object/Attribute/Tag persistence model    | ✅ done        |
-| Command + Hook + TypeClass registry               | ✅ done        |
-| Full auth state machine (argon2 + login flow)     | ✅ done        |
-| Persistent scheduler / scripts                    | ⏳ next        |
-
-## For framework users
-
-The end goal is a framework where you can:
-
-```rust
-// (hypothetical future API — not yet final)
-use muoxi::prelude::*;
-
-#[muoxi::typeclass(key = "weapon")]
-struct Weapon;
-
-impl Weapon {
-    #[hook(at_create)]
-    fn on_create(obj: &mut Object) -> anyhow::Result<()> {
-        obj.attributes.set("damage", json!(7))?;
-        Ok(())
-    }
-}
-
-#[muoxi::command(name = "swing")]
-async fn cmd_swing(client: &mut Client, args: Vec<String>) -> CommandResult<()> {
-    // ...
-}
-
-fn main() {
-    Registry::new()
-        .register_typeclass::<Weapon>()
-        .register_command::<CmdSwing>()
-        .run();
-}
-```
-
-The registry/typeclass/hook layer (next on the roadmap) lands this surface.
-Until then, downstream code reaches into the lower layers
-(`muoxi/src/server/`, `db/src/objects/`) directly. See
-[`AGENTS.md`](AGENTS.md) for the current code map.
-
-## Development
-
-### Tests
-
-```bash
-cargo test -p db --features db-sqlite     # 5 integration tests, in-memory
-```
-
-The `db` crate carries integration tests under `db/tests/`. Tests use the
-default SQLite backend and require no system dependencies.
-
-### Type-check both backends
-
-```bash
-cargo check --workspace                                              # SQLite (default)
-cargo check -p db --no-default-features --features db-postgres       # Postgres
-```
-
-### Lint
-
-```bash
-cargo clippy --workspace --no-deps
-```
-
-### Knowledge bases
-
-Every non-trivial directory has an `AGENTS.md` documenting layout,
-conventions, and anti-patterns specific to that subsystem:
-
-- [`AGENTS.md`](AGENTS.md) — repo-wide overview, code map, env vars
-- [`db/AGENTS.md`](db/AGENTS.md) — persistence layer, schema, repos
-- [`muoxi/AGENTS.md`](muoxi/AGENTS.md) — app crate, binaries, conventions
-- [`muoxi/src/server/AGENTS.md`](muoxi/src/server/AGENTS.md) — server module, state machine
-- [`benchmarks/AGENTS.md`](benchmarks/AGENTS.md) — benchmark harness
-- [`tester/AGENTS.md`](tester/AGENTS.md) — sandbox binary
-
-These files are designed for AI agents and new contributors alike.
+v0.1 is shipped — a working bare-bones MUD framework. The
+[roadmap](docs/roadmap.md) tracks v0.2 (closing extension-surface gaps)
+and beyond.
 
 ## Contributing
 
-PRs welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, conventions,
-and how to find a good first issue (or pick a Plan-4-onward task that fits
-your interests).
-
-Reach out on [discord][discord] for design conversations.
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions,
+and the testing matrix. Reach out on [discord][discord] for design
+conversations.
 
 ## License
 
-GPL v3 — see [`LICENSE`](LICENSE).
+GPL-3.0 — see [LICENSE](LICENSE).
 
 [logo]:        .media/cog.png
 [wikimudpage]: https://en.wikipedia.org/wiki/MUD
