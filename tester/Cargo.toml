@@ -1,21 +1,19 @@
 [package]
 name = "tester"
-version = "0.1.0"
-authors = ["duysqubix <duys@qubixat.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
-db = {path = "../db"}
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["preserve_order"] }
-tokio = {version = "^0.2", features=["full"]}
-rand = "^0.7"
-hotwatch = "0.4.3"
-redis = "0.13.0"
-diesel = { version = "1.0.0", features = ["postgres", "uuid"] }
-
+db = { path = "../db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+rand = { workspace = true }
+redis = { workspace = true }
+diesel = { workspace = true }
 
 [[bin]]
 name = "muoxi_sandbox"

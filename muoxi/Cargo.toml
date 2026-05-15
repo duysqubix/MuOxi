@@ -1,31 +1,27 @@
 [package]
 name = "muoxi"
-version = "0.1.0"
-authors = ["duysqubix <duys@qubixat.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
-db = {path = "../db"}
+db = { path = "../db" }
 
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-tungstenite = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
 
-pretty_env_logger = "^0.3"
-tokio = {version = "^0.2", features=["full"]}
-tokio-util = { version = "^0.2", features = ["full"] }
-futures = "^0.3"
-log = "^0.4"
-rand = "^0.7"
-serde = {version = "^1", features = ["derive"]}
-serde_json = { version = "^1", features = ["preserve_order"] }
-hotwatch = "^0.4"
-ws = "^0.9"
-mio = "^0.6"
-mio-extras = "^2.0"
-bytes = "^0.5"
-async-trait = "^0.1"
-lazy_static = "^1.4"
-
+log = { workspace = true }
+pretty_env_logger = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hotwatch = { workspace = true }
+async-trait = { workspace = true }
 
 [[bin]]
 name = "muoxi_engine"
@@ -37,7 +33,7 @@ path = "src/staging/staging_proxy.rs"
 
 [[bin]]
 name = "muoxi_watchdog"
-path = 'src/watchdog/watchdog.rs'
+path = "src/watchdog/watchdog.rs"
 
 [[bin]]
 name = "muoxi_web"

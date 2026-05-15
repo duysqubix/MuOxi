@@ -1,10 +1,6 @@
-//!
-//! Definitions for CommandSets. Depending on a variety of factors, you have access
-//! to different sets of commands. Some of the basic conditions ruling this would be:
-//!
-//! * Connection State
-//! * Roles
-//!
+//! Definitions for `Command` / `CmdSet`. Depending on a variety of factors
+//! (connection state, roles, etc.) a client gets a different set of commands.
+
 use crate::comms::Client;
 use async_trait::async_trait;
 use std::fmt::Debug;
@@ -13,12 +9,11 @@ use tokio::sync::mpsc;
 use tokio_util::codec::LinesCodecError;
 
 #[macro_export]
-/// an easier way to create a command set from
-/// valid `impl Command` objects
+/// Build a `CmdSet` from `impl Command` values.
 macro_rules! cmdset {
     ($($cmd: expr),+) => {
         {
-            let mut cmds: Vec<Box<dyn Command+Send>> = Vec::new();
+            let mut cmds: Vec<Box<dyn Command + Send>> = Vec::new();
             $(
                 cmds.push(Box::new($cmd));
             )*
@@ -39,74 +34,34 @@ pub type LinesCodecResult<T> = Result<T, LinesCodecError>;
 /// Custom error type revolving around the success of executing commands
 pub type CommandResult<T> = Result<T, &'static str>;
 
-/// defines a command trait
+/// Defines a command. All command logic must live inside the trait impl,
+/// because dispatch goes through `Box<dyn Command + Send>` trait objects.
 #[async_trait]
 pub trait Command: Debug + Sync {
-    /// name of command
+    /// Primary command name (lower-case).
     fn name(&self) -> &str;
 
-    /// a list of aliases that will invoke command
+    /// Aliases that also invoke this command.
     fn aliases(&self) -> Vec<&str>;
 
-    /// execute the actual command but only directs commands to game_server,
-    /// will err if client state is not in playing
+    /// Execute the command on the supplied client.
     async fn execute_cmd(&self, game_server: &mut Client) -> CommandResult<()>;
 
-    /// tests to see if supplied string is a valid command
-    fn is_match<'a>(&self, cmd: &'a str) -> bool {
+    /// Returns true when `cmd` matches the command's name or any alias.
+    fn is_match(&self, cmd: &str) -> bool {
         let cmd = cmd.to_lowercase();
-        // first check to see if there is a match with the name itself
         if cmd == self.name() {
             return true;
         }
-
-        if self.aliases().len() > 0 {
-            for c in self.aliases().iter() {
-                if *c == cmd {
-                    return true;
-                }
-            }
-        }
-        false
+        self.aliases().iter().any(|c| *c == cmd)
     }
 }
 
-/// Defines a common collection of commands
+/// Collection of `Box<dyn Command + Send>`.
 ///
-/// The current set up for this logic is that CmdSet
-/// is a vector of mutable references to *trait objects*
-/// meaning that all commands and their nature must be defined
-/// within the Command trait, defining other data associated with
-/// the struct of the Command is futile as the compiler will ambiguous
-/// to the actual object the trait is attached too. For example:
-///
-/// ### Example
-/// ```rust,ignore
-/// struct CmdLook
-/// impl CmdLook{
-///     fn method(){
-///         println!("Hello from object specific method");
-///     }
-/// }
-/// impl Command for CmdLoop{
-///     fn name() -> str{
-///         "look"
-///     }
-///     ...
-/// }
-///
-/// let cmdlook = CmdLook{other: 1};
-/// let cmdset = cmdset![cmdlook];
-/// let cmd = cmdset.get("look").unwrap();
-///
-/// cmd.name(); //valid because this method is defined in trait
-/// cmd.method() // invalid! Method returns object specific method which is invisible.
-/// ```
-///
-/// The main take away from this, is that Commands should run and be defined all
-/// within the Trait, creating a unit struct is just to give the Command a name.
-///
-
+/// All command logic must live within the `Command` trait impl, because dispatch
+/// goes through trait objects. Storing object-specific fields on a unit-struct
+/// command is meaningless - the compiler can't see them through the trait object.
 #[derive(Debug)]
 pub struct CmdSet {
     /// holds a list of valid commands in set
@@ -114,27 +69,18 @@ pub struct CmdSet {
 }
 
 impl CmdSet {
-    /// create a new command set based on appropriate structs that implement Command Trait
+    /// Create a new command set.
     pub fn new(cmds: Vec<Box<dyn Command + Send>>) -> Self {
-        Self { cmds: cmds }
+        Self { cmds }
     }
 
-    /// check to see if command exists within CmdSet
-    /// and returns the dyn Command that it matches with
-    /// this is still *fucking confusing*
+    /// Find the command matching `cmd_string`. Returns `None` if no match.
     pub fn get(&mut self, cmd_string: String) -> Option<&mut (dyn Command + Send)> {
-        let mut cntr = 0;
         for cmd in self.cmds.iter_mut() {
             if cmd.is_match(&cmd_string) {
-                break;
+                return Some(cmd.as_mut());
             }
-            cntr += 1;
         }
-
-        if let Some(cmd) = self.cmds.get_mut(cntr) {
-            return Some(&mut **cmd);
-        } else {
-            return None;
-        }
+        None
     }
 }

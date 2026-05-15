@@ -1,33 +1,31 @@
 #![allow(missing_docs)]
-// //!
-// //! Definitions and collections of all commands found throughou MuOxi whether they
-// //! be in staging server or game itself, this may eventually become it's own crate
-// //!
+
+//! Definitions and collections of all commands found throughout MuOxi
+//! whether in the staging server or the game itself.
 
 use crate::comms::Client;
-use crate::prelude::{CmdSet, Command, CommandResult};
+use crate::prelude::{Command, CommandResult};
 use crate::send;
 use async_trait::async_trait;
 use std::cmp::{Eq, PartialEq};
 use std::hash::Hash;
 
-pub async fn do_cmd<'a>(
-    mut client: &mut Client,
+pub async fn do_cmd(
+    client: &mut Client,
     cmd: Option<&mut (dyn Command + Send)>,
-    errmsg: &'a str,
+    errmsg: &str,
 ) -> CommandResult<()> {
     if let Some(cmd) = cmd {
         cmd.execute_cmd(client).await?;
     } else {
-        send(&mut client, errmsg).await.unwrap();
+        send(client, errmsg).await.unwrap();
     }
     Ok(())
 }
 
-////*********************Proxy Staging Server Commands*************//
-/// the command of 'new' to create a new account
 pub mod proxy_commands {
     use super::*;
+
     #[derive(Debug, Clone, Hash, Eq, PartialEq)]
     pub struct CmdProxyNew;
 
@@ -46,9 +44,9 @@ pub mod proxy_commands {
         }
     }
 
-    /// command to connect to existing account
     #[derive(Debug, Clone, Hash, Eq, PartialEq)]
     pub struct CmdProxyAccount;
+
     #[async_trait]
     impl Command for CmdProxyAccount {
         fn name(&self) -> &str {
@@ -65,7 +63,5 @@ pub mod proxy_commands {
     }
 }
 
-mod game_commands {
-    //
-    // use super::*;
-}
+#[allow(dead_code)]
+mod game_commands {}

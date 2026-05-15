@@ -1,4 +1,4 @@
-table! {
+diesel::table! {
     accounts (uid) {
         uid -> Int8,
         name -> Varchar,
@@ -8,7 +8,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     characters (uid) {
         uid -> Int8,
         account -> Int8,
@@ -16,7 +16,4 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(
-    accounts,
-    characters,
-);
+diesel::allow_tables_to_appear_in_same_query!(accounts, characters,);

@@ -1,7 +1,35 @@
 [workspace]
+resolver = "2"
 members = [
-    'muoxi',
-    'db',
-    'benchmarks',
-    'tester'
+    "muoxi",
+    "db",
+    "benchmarks",
+    "tester",
 ]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["duysqubix <duys@qubixat.com>"]
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+tokio-stream = "0.1"
+futures = "0.3"
+futures-util = "0.3"
+diesel = { version = "2.2", features = ["postgres", "uuid"] }
+redis = "0.27"
+tokio-tungstenite = "0.24"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+log = "0.4"
+pretty_env_logger = "0.5"
+rand = "0.8"
+uuid = { version = "1", features = ["serde", "v4"] }
+async-trait = "0.1"
+chrono = "0.4"
+hotwatch = "0.5"
+bytes = "1"

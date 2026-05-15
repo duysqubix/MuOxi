@@ -1,35 +1,19 @@
 [package]
 name = "db"
-version = "0.1.0"
-authors = ["duysqubix <duys@qubixat.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-
-[dependencies.redis]
-version = "0.13.0"
-
-[dependencies.diesel]
-version = "1.0.0"
-features = ["postgres", "uuid"]
-
-
-[dependencies.rand]
-version = "^0.7"
-
-[dependencies.serde]
-version = "1.0"
-features = ["derive"]
-
-[dependencies.serde_json]
-version = "1.0"
-features = ["preserve_order"]
-
-[dependencies.uuid]
-version = "0.8"
-features =["serde", "v4"]
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 
 [lib]
 name = "db"
 path = "src/lib.rs"
+
+[dependencies]
+diesel = { workspace = true }
+redis = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rand = { workspace = true }
+uuid = { workspace = true }

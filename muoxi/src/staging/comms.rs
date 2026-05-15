@@ -1,16 +1,17 @@
-//! Definitions and declarations of data structures relating comms
+//! Connection-state types: `Server` (shared), `Client` (per-connection),
+//! `Comms` (the per-client SocketAddr+Tx pair stored in `Server`), `Message`.
 
 use crate::prelude::{Rx, Tx};
 use crate::states::ConnStates;
 use db::utils::UID;
+use futures::stream::Stream;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::net::TcpStream;
-use tokio::stream::Stream;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 
 /// The types of message recieved
@@ -18,33 +19,28 @@ use tokio_util::codec::{Framed, LinesCodec, LinesCodecError};
 pub enum Message {
     /// Message recieved from connected client
     FromClient(String),
-
     /// Message recieved from shared Rx
     OnRx(String),
 }
 
-/// Wrapper around connected socket, this is non-persistent data and only valid
-/// within the main `process`.
+/// Wrapper around a connected socket. Non-persistent, only valid inside the
+/// `process()` lifetime.
 #[derive(Debug)]
 pub struct Client {
     /// unique id for client
     pub uid: UID,
-
     /// current state of connected client
     pub state: ConnStates,
-
     /// encodes and decodes incoming streams
     pub lines: Framed<TcpStream, LinesCodec>,
-
     /// socket address of connected client
     pub addr: SocketAddr,
     rx: Rx,
 }
 
 impl Client {
-    /// asyncronously create a new client instance
-    /// this instance of client is only valid during the duration of
-    /// the time spent alive and connected to server
+    /// Asynchronously construct a `Client`. Registers the client into
+    /// `Server.clients` under `uid`.
     pub async fn new(
         uid: UID,
         server: Arc<Mutex<Server>>,
@@ -53,13 +49,13 @@ impl Client {
         let addr = stream.peer_addr()?;
         let (tx, rx) = mpsc::unbounded_channel();
         let comms = Comms(addr, tx);
-        server.lock().await.clients.insert(uid.clone(), comms);
+        server.lock().await.clients.insert(uid, comms);
         Ok(Self {
-            uid: uid,
+            uid,
             state: ConnStates::AwaitingName,
             lines: Framed::new(stream, LinesCodec::new()),
-            addr: addr,
-            rx: rx,
+            addr,
+            rx,
         })
     }
 }
@@ -67,27 +63,28 @@ impl Client {
 impl Stream for Client {
     type Item = Result<Message, LinesCodecError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Poll::Ready(Some(v)) = Pin::new(&mut self.rx).poll_next(cx) {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+
+        if let Poll::Ready(Some(v)) = this.rx.poll_recv(cx) {
             return Poll::Ready(Some(Ok(Message::OnRx(v))));
         }
 
-        let result: Option<_> = futures::ready!(Pin::new(&mut self.lines).poll_next(cx));
-
-        Poll::Ready(match result {
-            Some(Ok(message)) => Some(Ok(Message::FromClient(message))),
-            Some(Err(e)) => Some(Err(e)),
-            None => None,
-        })
+        match Pin::new(&mut this.lines).poll_next(cx) {
+            Poll::Ready(Some(Ok(message))) => Poll::Ready(Some(Ok(Message::FromClient(message)))),
+            Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
-/// Server owned structure that holds each clients SocketAddr and Tx channel
+/// Server-owned structure holding each client's `SocketAddr` and outbound `Tx`.
 #[derive(Debug)]
 pub struct Comms(pub SocketAddr, pub Tx);
 
 /// Shared ownership structure between all connected clients.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Server {
     /// Holds information regarding connected clients
     pub clients: HashMap<UID, Comms>,
@@ -101,14 +98,16 @@ impl Server {
         }
     }
 
-    /// helper function that broadcasts data to all connected clients
+    /// Broadcast `message` to every connected client. The sender (`sender`)
+    /// receives a "You broadcasted, ..." echo while everyone else gets the raw
+    /// message.
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
         for (_uid, comms) in self.clients.iter_mut() {
             if comms.0 != sender {
                 let _ = comms.1.send(message.into());
             } else {
                 let msg = format!("You broadcasted, {}", message);
-                let _ = comms.1.send(msg.into());
+                let _ = comms.1.send(msg);
             }
         }
     }

@@ -1,209 +1,90 @@
+//! WebSocket-to-TCP bridge. Listens on `127.0.0.1:8080` for browser clients
+//! and, for each WebSocket connection, opens a fresh outbound TCP connection
+//! to the staging proxy at `127.0.0.1:8000`. Text messages are forwarded both
+//! ways (line-oriented).
 //!
-//! Handles all things related to WebSocketServer
-//! Like finding a specific connectd sender etc..
+//! Run after starting `muoxi_staging`.
+//!
+//! ```bash
+//! cargo run --bin muoxi_staging   # in one terminal
+//! cargo run --bin muoxi_web       # in another
+//! # then connect with any WS client to ws://127.0.0.1:8080
+//! ```
 
-use mio::Token;
-use pretty_env_logger;
-use std::collections::HashMap;
-use std::fmt;
-use std::fs;
-use std::io::prelude::*;
-use std::net::TcpStream;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use ws::listen;
-use ws::{CloseCode, Handler, Message, Request, Response, Sender};
+use futures_util::{SinkExt, StreamExt};
+use std::env;
+use std::error::Error;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{TcpListener, TcpStream};
+use tokio_tungstenite::accept_async;
+use tokio_tungstenite::tungstenite::Message;
 
-type IpAddr = String;
+type AnyError = Box<dyn Error + Send + Sync>;
 
-struct HTML;
-impl HTML {
-    fn get_index() -> std::io::Result<Vec<u8>> {
-        let contents = fs::read_to_string("static/index.html".to_string())?;
-        Ok(Vec::from(contents.as_bytes()))
-    }
-}
+async fn handle_client(ws_stream: TcpStream, staging_addr: String) -> Result<(), AnyError> {
+    let ws = accept_async(ws_stream).await?;
+    let (mut ws_tx, mut ws_rx) = ws.split();
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ClientData {
-    pub ip: String,
-    pub token: Token,
-    pub in_buf: Vec<u8>,  //from connected client
-    pub out_buf: Vec<u8>, // to go to internal TCP client
-}
+    let tcp = TcpStream::connect(&staging_addr).await?;
+    let (tcp_r, mut tcp_w) = tcp.into_split();
 
-impl ClientData {
-    fn new(ip: IpAddr, token: Token) -> Self {
-        Self {
-            ip: ip,
-            token: token,
-            in_buf: Vec::new(),
-            out_buf: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Clients {
-    pub client_list: HashMap<Sender, ClientData>,
-}
-
-impl Clients {
-    pub fn new() -> Self {
-        Self {
-            client_list: HashMap::new(),
-        }
-    }
-    pub fn insert(&mut self, sender: Sender, ip: IpAddr) -> ws::Result<()> {
-        let token = sender.token();
-        let client_data = ClientData::new(ip, token);
-
-        self.client_list.insert(sender, client_data);
-        Ok(())
-    }
-
-    pub fn remove(&mut self, sender: &Sender) -> Option<ClientData> {
-        self.client_list.remove(sender)
-    }
-}
-
-impl fmt::Display for Clients {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut fmt_string = "Connected Clients: \n".to_string();
-
-        for (_sender, client) in self.client_list.iter() {
-            let token = client.token;
-            let ip = client.ip.clone();
-            let tmp = format!("IP: {} Token: {}\n", ip, token.0);
-            fmt_string.push_str(&tmp[..]);
-        }
-
-        write!(f, "{}", fmt_string)
-    }
-}
-// WebSocketServer web application handler
-pub struct WebSocketServer {
-    out: Sender,
-    clients: Arc<Mutex<Clients>>,
-}
-
-impl WebSocketServer {
-    pub fn new(sender: Sender, clients: Arc<Mutex<Clients>>) -> Self {
-        Self {
-            out: sender,
-            clients: clients,
-        }
-    }
-}
-
-impl Handler for WebSocketServer {
-    // Handle messages recieved in the websocket (in this case, only on /ws)
-    fn on_message(&mut self, msg: Message) -> ws::Result<()> {
-        // write client incoming message to in_buf, will be used by TCPinternal to redirect data to other end.
-        let mut clients = self.clients.lock().unwrap();
-        let mut client = clients.client_list.get_mut(&self.out).unwrap();
-        client.in_buf = Vec::from(format!("{}", msg).as_bytes());
-
-        Ok(())
-    }
-
-    fn on_open(&mut self, shake: ws::Handshake) -> ws::Result<()> {
-        if let Some(ip_addr) = shake.remote_addr()? {
-            println!("Connection opened from {}.", ip_addr);
-            self.clients
-                .lock()
-                .unwrap()
-                .insert(self.out.clone(), ip_addr)
-                .expect("Couldn't add client to global client list");
-        } else {
-            println!("Unable to obtain client's IP address.");
-        }
-        Ok(())
-    }
-
-    fn on_request(&mut self, req: &Request) -> ws::Result<Response> {
-        let contents = HTML::get_index().unwrap();
-        match req.resource() {
-            // The default trait implementation
-            "/ws" => Response::from_request(req),
-
-            // Create a custom response
-            "/" => Ok(Response::new(200, "OK", contents)),
-
-            _ => Ok(Response::new(404, "Not Found", b"404 - Not Found".to_vec())),
-        }
-    }
-
-    fn on_close(&mut self, code: CloseCode, reason: &str) {
-        if let Err(e) = self.out.send(Message::text("Goodbye!".to_string())) {
-            println!("Sender most likely already closed! :{}", e);
-        }
-
-        let mut clients = self.clients.lock().unwrap();
-
-        if let Some(client_data) = clients.remove(&self.out) {
-            println!(
-                "Closing connection to {}:{} for reason: {}{:?}",
-                client_data.ip, client_data.token.0, reason, code
-            );
-        }
-    }
-}
-
-struct InternalTcpClient {
-    clients: Arc<Mutex<Clients>>,
-    stream: TcpStream,
-}
-
-impl InternalTcpClient {
-    fn new(clients: Arc<Mutex<Clients>>, stream: TcpStream) -> Self {
-        Self {
-            clients: clients,
-            stream: stream,
-        }
-    }
-}
-
-fn main() {
-    pretty_env_logger::init();
-    //Listen on an address and call the closure for each connection
-    let clients = Arc::new(Mutex::new(Clients::new()));
-
-    let websocket_listener = thread::spawn({
-        let c = clients.clone();
-        move || listen("127.0.0.1:8080", |out| WebSocketServer::new(out, c.clone())).unwrap()
-    });
-
-    let _tcp_proxy = thread::spawn(move || {
-        // connect to an existing tcp server and forward input from websocket to this channel.
-        let addr = "127.0.0.1:8000";
-        let stream = TcpStream::connect(&addr).unwrap();
-
-        let mut client = InternalTcpClient::new(clients.clone(), stream);
-        loop {
-            // first check to see if client has messaged stored in in_buf and transfer write to port
-            {
-                let mut clients = client.clients.lock().unwrap();
-                for (_sender, data) in clients.client_list.iter_mut() {
-                    if data.in_buf.len() > 0 {
-                        //
-                        println!("sender: {}:{} {:?}", data.ip, data.token.0, data.in_buf);
-                        client.stream.write(&data.in_buf[..]).unwrap();
-                        data.in_buf = Vec::new();
-                    }
+    let ws_to_tcp = tokio::spawn(async move {
+        while let Some(msg) = ws_rx.next().await {
+            match msg? {
+                Message::Text(text) => {
+                    let line = format!("{}\n", text);
+                    tcp_w.write_all(line.as_bytes()).await?;
                 }
+                Message::Binary(bytes) => {
+                    tcp_w.write_all(&bytes).await?;
+                }
+                Message::Close(_) => break,
+                _ => {}
             }
-            // second check check to see if port has been written to
-            let mut response = String::new();
-            let num_bytes = client.stream.read_to_string(&mut response).unwrap_or(0);
-            if num_bytes > 0 {
-                println!("Response is: {}", &response[..num_bytes])
-            }
-
-            // evoke the clients.sender to send message back to websocket client..
         }
+        let _ = tcp_w.shutdown().await;
+        Ok::<_, AnyError>(())
     });
 
-    websocket_listener.join().unwrap();
-    // tcp_proxy.join().unwrap();
+    let tcp_to_ws = tokio::spawn(async move {
+        let mut lines = BufReader::new(tcp_r).lines();
+        while let Some(line) = lines.next_line().await? {
+            ws_tx.send(Message::Text(line)).await?;
+        }
+        let _ = ws_tx.send(Message::Close(None)).await;
+        Ok::<_, AnyError>(())
+    });
+
+    let _ = tokio::join!(ws_to_tcp, tcp_to_ws);
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), AnyError> {
+    pretty_env_logger::init();
+
+    let listen_addr =
+        env::var("WEB_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+    let staging_addr =
+        env::var("PROXY_ADDR").unwrap_or_else(|_| "127.0.0.1:8000".to_string());
+
+    let listener = TcpListener::bind(&listen_addr).await?;
+    println!(
+        "WebSocket bridge listening on ws://{} -> staging tcp://{}",
+        listen_addr, staging_addr
+    );
+
+    loop {
+        let (stream, peer) = listener.accept().await?;
+        println!("WS client connected: {}", peer);
+
+        let staging = staging_addr.clone();
+        tokio::spawn(async move {
+            if let Err(e) = handle_client(stream, staging).await {
+                eprintln!("WS client {} error: {}", peer, e);
+            } else {
+                println!("WS client {} disconnected", peer);
+            }
+        });
+    }
 }

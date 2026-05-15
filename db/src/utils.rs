@@ -1,17 +1,13 @@
-#![allow(unused_imports)]
 #![deny(missing_docs)]
 
-//!
 //! Holds collections of regularly used functions that relate to database usage
-//!
 
 use rand::Rng;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_json;
 use std::fs::File;
-
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Read};
 use std::time::SystemTime;
 
 /// unique id for each instance
@@ -21,8 +17,7 @@ pub type UID = i64;
 pub type JsonDecoderResult<T> = Result<T, serde_json::error::Error>;
 
 /// Reads JSON file and convert to JSON::Value
-///
-pub fn read_json_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value> {
+pub fn read_json_file(path: &str) -> serde_json::Result<serde_json::Value> {
     let mut s = Vec::new();
     File::open(path).unwrap().read_to_end(&mut s).unwrap();
     let json: serde_json::Value = serde_json::from_slice(&s)?;
@@ -30,7 +25,7 @@ pub fn read_json_file<'a>(path: &'a str) -> serde_json::Result<serde_json::Value
 }
 
 /// Serializes and writes structure to JSON
-pub fn write_json_file<'a, T: Serialize>(path: &'a str, object: &T) -> serde_json::Result<()> {
+pub fn write_json_file<T: Serialize>(path: &str, object: &T) -> serde_json::Result<()> {
     let errmsg = format!("Couldn't create file: {}", path);
     let file = File::create(path).expect(errmsg.as_str());
     let writer = BufWriter::new(&file);
@@ -45,17 +40,15 @@ pub fn json_to_object<T: Serialize + DeserializeOwned>(
     serde_json::from_value(val)
 }
 
-/// Creates a unique 8 byte address first 4 bytes is timestamp
-/// since UNIX_EPOCH and the last 8 bytes are randomly
-/// generated values
-///
+/// Creates a unique 8 byte address: first 4 bytes are seconds since UNIX_EPOCH,
+/// last 4 bytes are random.
 pub fn gen_uid() -> UID {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("SystemTime is before UNIX_EPOCH");
 
     let timestamp = now.as_secs() as i64;
-    let id = rand::thread_rng().gen_range(0, 0xFF_FF_FF_FF as i64);
+    let id = rand::thread_rng().gen_range(0..0xFF_FF_FF_FFi64);
 
-    ((timestamp << 32) | id) as UID
+    (timestamp << 32) | id
 }

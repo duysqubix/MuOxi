@@ -24,12 +24,15 @@ fast, safe, and reliable language. Explore MuOxi API the *[rustacean][gh-pages-s
 
 ## Current Status
 
-*For Nightly Builds* an update on Rust nightly seems to have broken something with the `diesel` crate. 
-
-The codebase is currently in *alpha* stage . Majority of development is done on the `master` 
+The codebase is currently in *alpha* stage. Majority of development is done on the `master` 
 branch. There is a working TCP server that allows
 for multiple connections and handles them accordingly. Effort is focused at the moment in 
 designing the database architecture utilizing [Diesel][diesel] with [PostgreSQL][postgresql] backend.
+
+The dependency stack was modernized in 2026: edition 2024, Tokio 1.x, Diesel 2.x, Redis 0.27, and
+`tokio-tungstenite` (replacing the unmaintained `ws` crate). The toolchain is pinned to stable Rust
+via [`rust-toolchain.toml`](rust-toolchain.toml). `cargo check --workspace` passes cleanly; building
+binaries that link Diesel still requires `libpq-dev` on the host.
 
 ## Contributions
 
@@ -115,16 +118,18 @@ After a few minutes, you will have postgres, redis and MuOxi itself running. Hap
 
 ## Quick Start Guide
 
-The project contains multiple  bins that can be evoked from the command line:
+The project contains multiple bins that can be evoked from the command line:
 
-* *(Not working as intended at the moment)* **cargo run --bin muoxi_web**
-    * Starts the websocket server listening for incoming webclients, *default 8001*
+* **cargo run --bin muoxi_web**
+    * Starts the WebSocket bridge listening on `ws://127.0.0.1:8080` (override `WEB_ADDR`).
+      Per-WS-client, it opens a fresh outbound TCP connection to the staging proxy at
+      `127.0.0.1:8000` (override `PROXY_ADDR`). Implemented with `tokio-tungstenite`.
 
 * **cargo run --bin muoxi_staging**
     * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
 
 * **cargo run --bin muoxi_watchdog**
-  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update MongoDB
+  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update PostgreSQL via Diesel.
 
 * **cargo run --bin muoxi_engine**
     * Starts the main game engine running in it's own seperate process. The whole game is contained
