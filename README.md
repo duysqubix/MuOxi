@@ -32,14 +32,22 @@ async runtime and type system for the throughput and safety they bring.
 This project went dormant for several years. As of May 2026 it's back in
 active development and being shaped into a v0.1 framework release.
 
-**What works today** (commit `47a2d4f` on `master`):
+**What works today:**
 
 - TCP/telnet server on `127.0.0.1:8000` — connects, serves welcome banner,
   runs a per-client connection-state machine.
 - WebSocket bridge with a built-in in-browser test client at
   `http://localhost:8080` (vanilla JS, no build step).
 - Generic object/attribute/tag persistence layer (Evennia-style) backed by
-  SQLite (default) or Postgres (opt-in).
+  SQLite (default) or Postgres (opt-in). Embedded migrations run automatically
+  at server startup — no `diesel migration run` required.
+- Command + Hook + TypeClass registry. Five built-in `TypeClass`es
+  (Character, Room, Item, Exit, Mob) and four built-in commands (`look`,
+  `say`, `quit`, `who`). Downstream MUDs register their own via
+  `Registry::register_*`.
+- `DEV_AUTOLOGIN=1` mode: skips the placeholder auth and lands new
+  connections in a seeded starter room as a throwaway "Dev" character. Real
+  end-to-end demo: connect, `look`, `say`, `who`, `quit`.
 - Redis-backed transient session cache.
 - Single-binary Docker stack (`docker compose up`).
 - Toolchain pinned to stable Rust 1.85; default build needs **zero system
@@ -52,8 +60,13 @@ active development and being shaped into a v0.1 framework release.
 ```bash
 git clone https://github.com/duysqubix/MuOxi.git
 cd MuOxi
-docker compose up
+DEV_AUTOLOGIN=1 docker compose up
 ```
+
+`DEV_AUTOLOGIN=1` skips the still-incomplete auth state machine and drops new
+connections straight into the seeded starter room as a throwaway "Dev"
+character. Without it, the welcome banner shows but you'll be disconnected on
+the first password prompt (auth lands later in the roadmap).
 
 Then connect any of three ways:
 
@@ -63,13 +76,24 @@ Then connect any of three ways:
 | Telnet / tt++ | `127.0.0.1:8000`              | `telnet 127.0.0.1 8000` or `tt++` `#session`  |
 | WS client     | `ws://localhost:8080`         | `wscat -c ws://localhost:8080` and any sender |
 
+Once connected, try:
+
+```
+look                     describes the current room + visible contents
+say hello world          speak (echo only for now; broadcast lands later)
+who                      list online players (stub for now)
+quit                     disconnect
+```
+
 If host ports 8000 / 8080 are taken:
 
 ```bash
-MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 docker compose up
+MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 DEV_AUTOLOGIN=1 docker compose up
 ```
 
-The first run creates `data/world.db` (SQLite) inside a named docker volume.
+The first run creates `data/world.db` (SQLite) inside a named docker volume
+and applies migrations automatically. A starting room ("Limbo") plus a sample
+item and mob are seeded on first boot.
 
 ## Building from source
 
@@ -164,8 +188,8 @@ The path to v0.1 is moving along these axes:
 | SQLite as default backend; drop JSON/watchdog     | ✅ done        |
 | Topology collapse → unified `muoxi_server`        | ✅ done        |
 | Generic Object/Attribute/Tag persistence model    | ✅ done        |
-| Command + Hook + TypeClass registry               | ⏳ next        |
-| Persistent scheduler / scripts                    | ⏳             |
+| Command + Hook + TypeClass registry               | ✅ done        |
+| Persistent scheduler / scripts                    | ⏳ next        |
 | Full auth state machine (argon2 + login flow)     | ⏳             |
 
 ## For framework users

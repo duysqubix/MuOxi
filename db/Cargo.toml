@@ -17,6 +17,7 @@ db-postgres = ["diesel/postgres"]
 
 [dependencies]
 diesel = { workspace = true }
+diesel_migrations = { workspace = true }
 libsqlite3-sys = { workspace = true, optional = true }
 redis = { workspace = true }
 serde = { workspace = true }

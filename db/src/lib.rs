@@ -15,9 +15,14 @@ pub mod utils;
 pub use conn::{Conn, configure, default_url, establish};
 
 pub use diesel;
+pub use diesel_migrations;
 
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use objects::{AttributeRepo, CharacterAccountRepo, ObjectRepo, TagRepo};
 use structures::account::AccountHandler;
+
+/// All SQL migrations under `migrations/`, embedded at compile time.
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../migrations");
 
 /// Top-level database facade. Holds an open connection plus all repository
 /// helpers. Construct with [`DatabaseHandler::connect`].
@@ -37,14 +42,18 @@ pub struct DatabaseHandler {
 }
 
 impl DatabaseHandler {
-    /// Connect to the configured database and apply runtime pragmas.
+    /// Connect to the configured database, apply runtime pragmas, and run
+    /// any pending migrations.
     ///
     /// Reads `DATABASE_URL`; falls back to [`default_url`] (`data/world.db`
     /// for SQLite or `postgres://muoxi:muoxi@localhost/muoxi` for Postgres).
-    /// Panics if the connection cannot be established.
+    /// Panics if the connection cannot be established or if migrations fail.
     pub fn connect() -> Self {
         let mut handle = establish();
         configure(&mut handle).expect("configure() pragmas failed");
+        handle
+            .run_pending_migrations(MIGRATIONS)
+            .expect("run_pending_migrations failed");
         Self {
             handle,
             accounts: AccountHandler,
