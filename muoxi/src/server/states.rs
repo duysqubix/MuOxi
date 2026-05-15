@@ -196,6 +196,88 @@ impl ConnStates {
                 .await?;
                 Ok(ConnStates::MainMenu)
             }
+            ConnStates::MainMenu => {
+                let Some(account_uid) = client.account_uid else {
+                    client.auth_buffer.clear();
+                    crate::send(client, "Session lost. Enter your account name:").await?;
+                    return Ok(ConnStates::AwaitingName);
+                };
+                let trimmed = response.trim();
+                let chars = world.list_account_characters(account_uid).await;
+
+                if trimmed.is_empty() {
+                    let mut menu = String::new();
+                    if chars.is_empty() {
+                        menu.push_str("You have no characters yet.\n");
+                    } else {
+                        menu.push_str("Your characters:\n");
+                        for (idx, ch) in chars.iter().enumerate() {
+                            menu.push_str(&format!("  {}. {}\n", idx + 1, ch.name));
+                        }
+                    }
+                    menu.push_str("Enter a number to play, `new <name>` to create, or `quit`.");
+                    crate::send(client, &menu).await?;
+                    return Ok(ConnStates::MainMenu);
+                }
+
+                if trimmed.eq_ignore_ascii_case("quit") {
+                    return Ok(ConnStates::Quit);
+                }
+
+                let create_arg = if let Some(rest) = trimmed.strip_prefix("new ") {
+                    Some(rest.trim())
+                } else if trimmed.eq_ignore_ascii_case("new") {
+                    Some("")
+                } else {
+                    None
+                };
+                if let Some(name) = create_arg {
+                    if !crate::auth::is_valid_name(name) {
+                        crate::send(
+                            client,
+                            "Usage: `new <name>` — 3-32 chars, alphanumeric/underscore, must start with a letter.",
+                        )
+                        .await?;
+                        return Ok(ConnStates::MainMenu);
+                    }
+                    let starting_room = world.starting_room().await;
+                    match world
+                        .create_character(&registry, account_uid, name, starting_room)
+                        .await
+                    {
+                        Ok(obj) => {
+                            client.character_uid = Some(obj.uid);
+                            crate::send(
+                                client,
+                                &format!("Created {}. Entering world.", obj.name),
+                            )
+                            .await?;
+                            return Ok(ConnStates::Playing);
+                        }
+                        Err(e) => {
+                            crate::send(client, &format!("Could not create: {e}")).await?;
+                            return Ok(ConnStates::MainMenu);
+                        }
+                    }
+                }
+
+                if let Ok(idx) = trimmed.parse::<usize>() {
+                    if idx >= 1 && idx <= chars.len() {
+                        let chosen = &chars[idx - 1];
+                        client.character_uid = Some(chosen.uid);
+                        crate::send(client, &format!("Playing as {}.", chosen.name))
+                            .await?;
+                        return Ok(ConnStates::Playing);
+                    }
+                }
+
+                crate::send(
+                    client,
+                    "Unrecognized. Enter a number, `new <name>`, or `quit`.",
+                )
+                .await?;
+                Ok(ConnStates::MainMenu)
+            }
             ConnStates::Playing => {
                 if response.trim().eq_ignore_ascii_case("quit") {
                     return Ok(ConnStates::Quit);

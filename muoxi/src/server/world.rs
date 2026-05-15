@@ -155,6 +155,78 @@ impl WorldApi {
         Ok(row)
     }
 
+    /// Find the seeded starting room (tagged `(starting-room, system)` by
+    /// `crate::seed::seed_world`). `None` before the first boot's seed pass
+    /// has run.
+    pub async fn starting_room(&self) -> Option<UID> {
+        self.objects_with_tag(
+            crate::seed::STARTING_ROOM_TAG.0,
+            crate::seed::STARTING_ROOM_TAG.1,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.into_iter().next())
+    }
+
+    /// List the character objects belonging to `account_uid`, in ordinal order.
+    pub async fn list_account_characters(&self, account_uid: UID) -> Vec<Object> {
+        let mut db = self.db.lock().await;
+        let DatabaseHandler {
+            handle,
+            character_accounts,
+            objects,
+            ..
+        } = &mut *db;
+        let links = character_accounts
+            .list_for_account(handle, account_uid)
+            .unwrap_or_default();
+        let mut out = Vec::with_capacity(links.len());
+        for link in links {
+            if let Ok(Some(obj)) = objects.get(handle, link.object_uid) {
+                out.push(obj);
+            }
+        }
+        out
+    }
+
+    /// Create a character object owned by `account_uid`, named `name`, placed
+    /// in `location_uid`. Applies the registered `character` TypeClass's
+    /// default attributes and tags.
+    pub async fn create_character(
+        &self,
+        registry: &crate::registry::Registry,
+        account_uid: UID,
+        name: &str,
+        location_uid: Option<UID>,
+    ) -> Result<Object, &'static str> {
+        let mut db = self.db.lock().await;
+        let DatabaseHandler {
+            handle,
+            objects,
+            attributes,
+            tags,
+            character_accounts,
+            ..
+        } = &mut *db;
+
+        let obj = objects
+            .create(handle, "character", name, location_uid)
+            .map_err(|_| "could not create character object")?;
+        character_accounts
+            .link(handle, obj.uid, account_uid)
+            .map_err(|_| "could not link character to account")?;
+
+        if let Some(tc) = registry.get_type("character") {
+            for (k, v) in tc.default_attributes() {
+                let _ = attributes.set(handle, obj.uid, &k, &v);
+            }
+            for (k, cat) in tc.default_tags() {
+                let _ = tags.add(handle, obj.uid, &k, &cat);
+            }
+        }
+        Ok(obj)
+    }
+
     /// Inner DB access for advanced callers (still locks).
     pub async fn with_db<F, T>(&self, f: F) -> T
     where
