@@ -1,6 +1,10 @@
 # db crate (library)
 
-Shared persistence + caching layer. Used by `muoxi`, `tester`, `benchmarks`. Backend-agnostic: defaults to SQLite via `db-sqlite`; Postgres available via `--no-default-features --features db-postgres`. Wraps Diesel 2.x for durable state, Redis 0.27 for transient/cache state, and `serde_json` for import/export.
+Shared persistence + caching layer, used by `muoxi` and `examples/extension`.
+Backend-agnostic: defaults to SQLite via `db-sqlite`; Postgres available via
+`--no-default-features --features db-postgres`. Wraps Diesel 2.x for durable
+state, Redis 0.27 for transient/cache state, `serde_json` for the attribute
+bag.
 
 ## STRUCTURE
 
@@ -90,24 +94,33 @@ character_accounts(object_uid PK -> objects CASCADE,
 
 `uid > 0` CHECK constraint on every UID column. Portable across SQLite and Postgres.
 
-## ADDING A NEW IN-WORLD TYPE
+## Adding a new in-world type
 
-You do NOT change the schema. Register a new `type_key` value (e.g. `"weapon"`,
-`"npc"`, `"chest"`) and use `ObjectRepo::create(conn, "weapon", ...)`. Per-type
-gameplay state goes into `ObjectAttribute` (e.g. `attributes.set(uid, "damage", json!(7))`).
-Plan 4 introduces a `TypeClass` registry that pairs `type_key` with command sets
-and lifecycle hooks; until then, downstream code just calls into the repos
-directly.
+The schema doesn't change. Pick a `type_key` value (e.g. `"weapon"`,
+`"npc"`, `"chest"`), call `ObjectRepo::create(conn, "weapon", ...)`,
+and store per-type state in `ObjectAttribute`. The higher-level
+`TypeClass` registry in the `muoxi` crate pairs the `type_key` with
+default attributes, default tags, default commands, and lock maps;
+downstream code that wants those defaults applied uses
+`Registry::register_type` and goes through `WorldApi`.
 
-## ANTI-PATTERNS
+## Things that catch people out
 
-- DO NOT use `BIGINT[]`, `JSONB`, `LISTEN/NOTIFY`, `to_tsvector`, or other Postgres-only types in the core schema. Keep it portable.
-- DO NOT use `redis::Commands::set_multiple` - deprecated in 0.27, use `mset`.
-- DO NOT call `DatabaseHandler::connect()` from inside an async task without offloading - Diesel 2.x is sync-blocking.
-- DO NOT pass `&Conn` (immutable) to any query helper. All Diesel 2.x query execution requires `&mut Conn`.
-- DO NOT bring back JSON-canonical/watchdog. The DB is the single source of truth; `json/` is import/export only.
-- DO NOT bypass the repos. Engine code calls `db.objects.create(...)`, never `diesel::insert_into(objects::table)` directly.
-- DO NOT add a separate `characters` table back. Characters are objects with `type_key = "character"`; their account link lives in `character_accounts`.
+- The core schema stays portable between SQLite and Postgres. Avoid
+  Postgres-only types — `BIGINT[]`, `JSONB`, `LISTEN/NOTIFY`,
+  `to_tsvector` — in `db/src/schema.rs`.
+- `redis::Commands::set_multiple` is deprecated in 0.27; use `mset`.
+- `DatabaseHandler::connect()` is Diesel-2.x sync-blocking. From async
+  contexts, offload it (e.g. `tokio::task::spawn_blocking`).
+- All Diesel 2.x query helpers take `&mut Conn`. Passing `&Conn`
+  doesn't compile.
+- JSON files under `json/` are for import/export payloads. The DB is
+  the single source of truth.
+- Engine code goes through `WorldApi`, not Diesel directly. The repos
+  here are for `db`-crate code and framework internals.
+- There's no separate `characters` table. Characters are objects with
+  `type_key = "character"`; the account link lives in
+  `character_accounts`.
 
 ## ENV
 

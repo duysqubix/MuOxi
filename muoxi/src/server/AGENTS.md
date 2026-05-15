@@ -1,59 +1,70 @@
-# server module (the muoxi_server binary)
+# server module
 
-The unified MuOxi server. Owns the TCP listener, per-client session state, the
-connection-state machine, and the registry-driven command dispatch. Now also
-the framework's library half — `muoxi/src/lib.rs` re-exports these modules
-under `#[path]` attrs so downstream MUDs can depend on `muoxi` as a crate.
+The unified MuOxi server. Owns the TCP listener, per-client session state,
+the connection-state machine, and the registry-driven command dispatch.
+Also the framework's library half — `muoxi/src/lib.rs` re-exports these
+modules under `#[path]` attributes so downstream MUDs can depend on
+`muoxi` as a crate.
 
-## FILES
+## Files
 
 | File | Role |
-|------|------|
-| `main.rs` | Binary entrypoint. Constructs `WorldApi` + `Registry`, registers built-ins, spawns `process()` per accepted connection. |
-| `comms.rs` | `Server` (`Arc<Mutex<>>`-shared), `Client` (per-conn, holds `Framed<TcpStream, LinesCodec>` + `mpsc::UnboundedReceiver`), `Comms(SocketAddr, Tx)`, `Message` enum. |
+| --- | --- |
+| `main.rs` | Binary entry. Constructs `WorldApi` + `Registry`, registers built-ins, spawns `process()` per accepted connection. |
+| `comms.rs` | `Server` (`Arc<Mutex<>>`-shared), `Client` (per-conn, holds `Framed<TcpStream, LinesCodec>` + `mpsc::UnboundedReceiver`), `Comms(SocketAddr, Tx)`, `Message`. |
 | `states.rs` | `ConnStates` enum + `execute(client, registry, world, response)` state-transition function. |
 | `cmds.rs` | `dispatch()` — resolves a command via `Registry`, runs the lock check, executes with a `CommandContext`. |
 | `prelude.rs` | `Command` trait, `CommandContext`, type aliases. |
-| `engine.rs` | Game-logic entry point (`handle_input`). v0.1 pass-through to `cmds::dispatch`; the obvious extension point for pre/post-input processing. |
-| `hooks.rs` | `Hook` trait + `Hooks` collection. Lifecycle event listeners (at_login, at_disconnect, at_pre/post_move, at_say, ...). |
-| `locks.rs` | Minimal expression evaluator (`all()` / `false` / `perm(name)`). |
-| `registry.rs` | `Registry` — central index of TypeClasses, Commands, Hooks. Thread-safe via `DashMap`. |
+| `engine.rs` | Game-logic entry. Pass-through to `cmds::dispatch`; the natural extension point for pre/post-input processing. |
+| `hooks.rs` | `Hook` trait + `Hooks` collection. Lifecycle event listeners. |
+| `locks.rs` | Lock-expression evaluator (`all()` / `false` / `perm(name)`). |
+| `registry.rs` | `Registry` — central index of TypeClasses, Commands, Hooks. Concurrent via `DashMap`. |
 | `typeclass.rs` | `TypeClass` trait + 5 built-in types (Character, Room, Item, Exit, Mob). |
 | `world.rs` | `WorldApi` — DB facade for command handlers. Wraps `DatabaseHandler` in `Arc<Mutex<>>`. |
 | `commands/` | Built-in commands: `look`, `say`, `quit`, `who`. |
+| `seed.rs` | `seed_world` — idempotent starting-room seeder. |
+| `auth.rs` | argon2 hashing, `AuthBuffer`, name/password validators. |
 
-## TOPOLOGY
+## Topology
 
-There is exactly ONE process. Telnet clients hit `127.0.0.1:8000` (override
-with `PROXY_ADDR`) directly. Websocket clients hit `muoxi_web`
-(`127.0.0.1:8080`) which bridges per-client to `127.0.0.1:8000`. There is no
-separate engine TCP listener.
+One process. Telnet clients hit `PROXY_ADDR` (default `127.0.0.1:8000`)
+directly. WebSocket clients hit `muoxi_web` (default `127.0.0.1:8080`),
+which bridges per-client to the same TCP backend. There's no separate
+engine listener.
 
-The portal/server split mentioned in the v0.2 roadmap reintroduces a framed
-protocol between sockets-process and game-process; until then this is the
-simplest topology that works.
+A portal/server split — sockets process and game process talking over a
+framed protocol — is on the [roadmap](../../docs/roadmap.md); for now,
+one process keeps the surface area smaller.
 
-## STATE FLOW
+## State flow
 
-1. `main()` binds `PROXY_ADDR` (default `127.0.0.1:8000`).
-2. Builds `WorldApi` + `Registry`, registers built-in TypeClasses + commands.
-3. On accept: build a `CacheSocket`, persist `(ip, port, uid)` to Redis under keys `Socket:UID:{ip,port,uid}`.
-4. Spawn `process()`. UID retrieved from Redis with fallback to `gen_uid()` and re-persist.
-5. `Client::new()` registers the client in `Server.clients` (shared `HashMap<UID, Comms>`).
-6. Send `resources/welcome.txt`. Initial state = `ConnStates::AwaitingName`.
-7. Loop: `get(&mut client).await` → `state.execute(client, registry, world, response).await` → echo new state for visibility.
-8. When `state == ConnStates::Playing`, input is forwarded to `cmds::dispatch` which resolves via Registry, runs the lock check, and invokes the matching `Command`.
-9. On disconnect or `Quit`, `client_cleanup()` removes the client from `Server.clients` and clears Redis keys.
+1. `main()` binds `PROXY_ADDR`.
+2. Builds `WorldApi` + `Registry`. Registers built-in TypeClasses and
+   commands. Seeds the starter room.
+3. On accept: builds a `CacheSocket`, persists `(ip, port, uid)` to
+   Redis under `Socket:UID:{ip,port,uid}`.
+4. Spawns `process()`. UID is recovered from Redis with `gen_uid()` as
+   the fallback.
+5. `Client::new()` registers the client in `Server.clients` (a shared
+   `HashMap<UID, Comms>`).
+6. Sends `resources/welcome.txt`. Initial state is `AwaitingName`.
+7. Loop: read a line, run `state.execute(client, registry, world,
+   response).await`, echo the new state for visibility.
+8. When the state reaches `Playing`, each input goes through
+   `cmds::dispatch`, which resolves via the Registry, runs the lock
+   check, and invokes the matching `Command`.
+9. On disconnect or `Quit`, `client_cleanup()` removes the client from
+   `Server.clients` and clears its Redis keys.
 
-## STATE MACHINE
+## State machine
 
-All 8 `ConnStates` have real logic. Flow:
+All eight `ConnStates` are wired:
 
 ```
        ┌──────────────┐
-       │ AwaitingName │◄─────────────── (bad password / no account / lost session)
+       │ AwaitingName │◄────── (bad password / no account / lost session)
        └───┬──────────┘
-   new │   │ existing-account
+   new │   │ existing
        ▼   ▼
 ┌──────────┐  ┌────────────┐
 │AwNewName │  │AwPassword  │── bad ──► AwaitingName
@@ -69,57 +80,75 @@ All 8 `ConnStates` have real logic. Flow:
      │        │ Playing │── quit ──► Quit ── at_disconnect fires
      │        └────┬────┘
      │             │
-     └─────────────► (commands run via cmds::dispatch + Registry)
+     └─────────────► (commands via cmds::dispatch + Registry)
 ```
 
-* `Client.auth_buffer` carries `pending_name` + `first_password_attempt` across transitions. Cleared on success, failure, or session loss.
-* `Client.account_uid` is set on successful auth OR new-account creation.
-* `Client.character_uid` is set on character select / character create.
-* `at_login` fires on `AwaitingPassword` success (non-cancelable, fan-out to all hooks).
-* `at_disconnect` fires from `client_cleanup` when `client.account_uid` is `Some` — never on welcome-screen abandons.
+`Client.auth_buffer` carries `pending_name` and
+`first_password_attempt` across transitions. It's cleared on success,
+failure, or session loss.
 
-Validators (in [`auth.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/auth.rs)):
-* `is_valid_name`: 3-32 chars, `[A-Za-z][A-Za-z0-9_]*`
-* `is_valid_password`: 6+ chars, no whitespace, no null bytes
+`Client.account_uid` is set on successful auth or new-account creation.
+`Client.character_uid` is set on character select or character create.
 
-Password hashing: argon2id, fresh `OsRng` salt per password, PHC-formatted hash stored in `accounts.password_hash`. Verification is constant-time.
+`at_login` fires on `AwaitingPassword` success — non-cancelable, fanned
+out to every registered hook. `at_disconnect` fires from
+`client_cleanup` when `client.account_uid` is `Some`; it doesn't fire
+on welcome-screen abandons.
 
-For development with a fast-path Playing flow (skipping the full new-account creation each connect), set `DEV_AUTOLOGIN=1` (see `main.rs`) — this creates a throwaway `Dev` character placed in the seeded room and jumps straight into `ConnStates::Playing`.
+Validators (in [`auth.rs`](auth.rs)):
 
-## EXTENSION SURFACE
+- `is_valid_name`: 3-32 chars, `[A-Za-z][A-Za-z0-9_]*`
+- `is_valid_password`: 6+ chars, no whitespace, no null bytes
 
-The framework's extension points are all on `Registry`:
+Password hashing: argon2id with a fresh `OsRng` salt per password, PHC
+string stored in `accounts.password_hash`. Verification is constant
+time.
+
+`DEV_AUTOLOGIN=1` (read in `main.rs`) skips the state machine and
+creates a throwaway `Dev` character in the seeded room — for fast
+iteration, not for production.
+
+## Extension surface
+
+Everything pluggable hangs off the `Registry`:
 
 | Method | Purpose |
-|---|---|
-| `register_type(Arc<dyn TypeClass>)` | Add a new in-world type (e.g. "dragon", "vehicle"). |
-| `register_command(Arc<dyn Command>)` | Add a new command available everywhere via `resolve_command`. |
-| `register_hook(Arc<dyn Hook>)` | Listen to lifecycle events (login, move, say, ...). |
+| --- | --- |
+| `register_type(Arc<dyn TypeClass>)` | Add a new in-world type. |
+| `register_command(Arc<dyn Command>)` | Add a command. |
+| `register_hook(Arc<dyn Hook>)` | Listen for lifecycle events. |
 
-Built-in `TypeClass`es: `character`, `room`, `item`, `exit`, `mob`. See
-[`typeclass.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/typeclass.rs).
+Built-in `TypeClass`es live in [`typeclass.rs`](typeclass.rs): `character`,
+`room`, `item`, `exit`, `mob`. Built-in commands live in
+[`commands/`](commands/): `look`, `say`, `quit`, `who`.
 
-Built-in commands: `look`, `say`, `quit`, `who`. See
-[`commands/`](file:///home/duys/.repos/MuOxi/muoxi/src/server/commands/).
+The lock-expression DSL ([`locks.rs`](locks.rs)) currently supports
+`all()`, `false`, and `perm(<name>)`. Anything else denies.
 
-Locks: trivial expression DSL — `all()` / `false` / `perm(<name>)`. See
-[`locks.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/locks.rs).
+`WorldApi` is the DB surface for command handlers — Diesel calls don't
+appear in command code.
 
-`WorldApi` is the only DB surface command handlers should touch. Diesel calls
-should never appear in command code.
+## Conventions
 
-## CONVENTIONS
+- Commands are unit structs deriving `Debug`, with `#[async_trait] impl
+  Command`. `name()` and `aliases()` return `&'static str`.
+- `Client.lines: Framed<TcpStream, LinesCodec>` is the line-delimited
+  protocol. `send()` and `get()` in `lib.rs` are the only public I/O
+  helpers.
+- Tokio 1.x imports: `tokio_stream::StreamExt` for `.next()` on
+  `Framed`; `futures_util::SinkExt` for `.send()`.
+- Inside the server modules `crate::*` refers to the library crate
+  (`muoxi::*` from outside).
 
-- Commands MUST be unit-structs deriving `Debug`, then `#[async_trait] impl Command`. `name()` and `aliases()` return `&'static str`.
-- `Client.lines: Framed<TcpStream, LinesCodec>` — line-delimited protocol. `send()` and `get()` (in `lib.rs`) are the only public I/O helpers.
-- Tokio 1.x imports: `use tokio_stream::StreamExt;` for `.next()` on `Framed`, `use futures_util::SinkExt;` for `.send()`.
-- `crate::*` inside server modules refers to the library crate (`muoxi::*` from outside).
+## Things that catch people out
 
-## ANTI-PATTERNS
-
-- DO NOT add a `[[bin]] muoxi_engine` back. Engine is a module, not a process.
-- DO NOT add a separate `transfer()` proxy. The engine runs in this process; there's no remote to forward to.
-- DO NOT use `tokio::stream::*` — Tokio 1.x doesn't have it. Use `tokio_stream::StreamExt`.
-- DO NOT hold `Server` mutex across `await` boundaries that touch I/O.
-- DO NOT touch Diesel from a command handler. Use `WorldApi` (the facade exists for this reason).
-- DO NOT call `Registry::resolve_command` from inside a handler unless absolutely necessary. The dispatcher already did that — handlers receive a `CommandContext` instead.
+- The engine is a module here, not a separate binary. There's no
+  `[[bin]] muoxi_engine`, and no `transfer()` proxy to forward to.
+- `tokio::stream::*` doesn't exist in Tokio 1.x. Use
+  `tokio_stream::StreamExt`.
+- Holding the `Server` mutex across `await` boundaries that touch I/O
+  deadlocks.
+- Command handlers reach for `WorldApi`, not Diesel directly.
+- The dispatcher already resolved your command, so handlers don't need
+  to call `Registry::resolve_command` themselves — they receive a
+  `CommandContext` with `args` already separated.
