@@ -10,8 +10,14 @@ license.workspace = true
 name = "db"
 path = "src/lib.rs"
 
+[features]
+default = ["db-sqlite"]
+db-sqlite = ["diesel/sqlite", "diesel/returning_clauses_for_sqlite_3_35", "dep:libsqlite3-sys"]
+db-postgres = ["diesel/postgres"]
+
 [dependencies]
 diesel = { workspace = true }
+libsqlite3-sys = { workspace = true, optional = true }
 redis = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
