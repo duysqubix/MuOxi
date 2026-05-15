@@ -25,6 +25,8 @@ pub mod locks;
 pub mod prelude;
 #[path = "server/registry.rs"]
 pub mod registry;
+#[path = "server/seed.rs"]
+pub mod seed;
 #[path = "server/states.rs"]
 pub mod states;
 #[path = "server/typeclass.rs"]
@@ -48,6 +50,16 @@ use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
+
+/// Per-session config that the listener loop passes to each spawned `process()`.
+#[derive(Clone, Copy, Debug)]
+pub struct SessionConfig {
+    /// If `Some(room_uid)`, skip the auth state machine on connect: create a
+    /// throwaway "Dev" character placed in `room_uid`, set `Client::uid` to
+    /// that character's UID, and jump straight to `ConnStates::Playing`. Set
+    /// by the `DEV_AUTOLOGIN` env var at server startup.
+    pub dev_autologin_room: Option<UID>,
+}
 
 /// Friendly async wrapper for sending messages to a client.
 pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> LinesCodecResult<()> {
@@ -90,6 +102,7 @@ pub async fn process(
     world: Arc<WorldApi>,
     stream: TcpStream,
     mut cache: CacheSocket,
+    config: SessionConfig,
 ) -> Result<(), Box<dyn Error>> {
     let uid = cache.get_value::<UID>("uid").unwrap_or_else(|| {
         println!("Error retrieving UID from redis, reassigning UID");
@@ -104,9 +117,32 @@ pub async fn process(
     });
 
     let mut client = Client::new(uid, server.clone(), stream).await?;
-    client.state = ConnStates::AwaitingName;
 
-    display_welcome(&mut client).await?;
+    if let Some(starting_room) = config.dev_autologin_room {
+        match world
+            .create_object("character", "Dev", Some(starting_room))
+            .await
+        {
+            Ok(dev_char) => {
+                client.uid = dev_char.uid;
+                client.state = ConnStates::Playing;
+                let _ = send(
+                    &mut client,
+                    "[DEV AUTOLOGIN] You are 'Dev'. Try: look, say hello, who, quit.",
+                )
+                .await;
+            }
+            Err(e) => {
+                eprintln!("DEV_AUTOLOGIN failed to create dev character: {e}; falling back to auth flow");
+                client.state = ConnStates::AwaitingName;
+                display_welcome(&mut client).await?;
+            }
+        }
+    } else {
+        client.state = ConnStates::AwaitingName;
+        display_welcome(&mut client).await?;
+    }
+
     let mut game_loop = true;
     while game_loop {
         if client.state == ConnStates::Quit {

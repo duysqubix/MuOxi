@@ -10,12 +10,14 @@
 use db::DatabaseHandler;
 use db::cache_structures::Cachable;
 use db::cache_structures::socket::CacheSocket;
+use muoxi::SessionConfig;
 use muoxi::process;
 use muoxi::registry::Registry;
+use muoxi::seed::seed_world;
 use muoxi::world::WorldApi;
+use std::env;
 use std::error::Error;
 use std::sync::Arc;
-use std::env;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
@@ -33,6 +35,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let registry = Arc::new(Registry::new(world.clone()));
     registry.register_builtin_types();
     muoxi::commands::register_all(&registry);
+
+    let starting_room = seed_world(&world)
+        .await
+        .map_err(|e| -> Box<dyn Error> { format!("seed_world failed: {e}").into() })?;
+
+    let dev_autologin = env::var("DEV_AUTOLOGIN")
+        .ok()
+        .filter(|v| v != "0" && !v.is_empty())
+        .is_some();
+    let session_config = SessionConfig {
+        dev_autologin_room: dev_autologin.then_some(starting_room),
+    };
+    if dev_autologin {
+        println!(
+            "DEV_AUTOLOGIN enabled: new connections skip auth and land in room uid={} as 'Dev'.",
+            starting_room
+        );
+    }
 
     let clients = Arc::new(Mutex::new(muoxi::comms::Server::new()));
 
@@ -52,7 +72,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cache_socket.set_address(&addr).dump()?;
 
         tokio::spawn(async move {
-            if let Err(e) = process(server, registry, world, stream, cache_socket).await {
+            if let Err(e) = process(
+                server,
+                registry,
+                world,
+                stream,
+                cache_socket,
+                session_config,
+            )
+            .await
+            {
                 println!("An error occured; error={:?}", e);
             }
         });
