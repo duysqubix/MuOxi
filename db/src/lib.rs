@@ -7,6 +7,7 @@
 pub mod cache;
 pub mod cache_structures;
 pub mod conn;
+pub mod objects;
 pub mod schema;
 pub mod structures;
 pub mod utils;
@@ -15,20 +16,28 @@ pub use conn::{Conn, configure, default_url, establish};
 
 pub use diesel;
 
-/// Main database handler.
+use objects::{AttributeRepo, CharacterAccountRepo, ObjectRepo, TagRepo};
+use structures::account::AccountHandler;
+
+/// Top-level database facade. Holds an open connection plus all repository
+/// helpers. Construct with [`DatabaseHandler::connect`].
 pub struct DatabaseHandler {
-    /// actual connection to the database (SQLite or Postgres)
+    /// active database connection
     pub handle: Conn,
-    /// handle to the Accounts table
-    pub accounts: structures::account::AccountHandler,
-    /// handle to the Characters table
-    pub characters: structures::character::CharacterHandler,
-    /// handle to the account_characters join table
-    pub account_characters: structures::account_character_link::AccountCharacterHandler,
+    /// account-table CRUD
+    pub accounts: AccountHandler,
+    /// generic object CRUD
+    pub objects: ObjectRepo,
+    /// per-object attribute CRUD (JSON-text values)
+    pub attributes: AttributeRepo,
+    /// per-object tag CRUD
+    pub tags: TagRepo,
+    /// character⇄account link CRUD
+    pub character_accounts: CharacterAccountRepo,
 }
 
 impl DatabaseHandler {
-    /// Connect to the configured database and apply runtime PRAGMAs.
+    /// Connect to the configured database and apply runtime pragmas.
     ///
     /// Reads `DATABASE_URL`; falls back to [`default_url`] (`data/world.db`
     /// for SQLite or `postgres://muoxi:muoxi@localhost/muoxi` for Postgres).
@@ -38,10 +47,11 @@ impl DatabaseHandler {
         configure(&mut handle).expect("configure() pragmas failed");
         Self {
             handle,
-            accounts: structures::account::AccountHandler,
-            characters: structures::character::CharacterHandler,
-            account_characters:
-                structures::account_character_link::AccountCharacterHandler,
+            accounts: AccountHandler,
+            objects: ObjectRepo,
+            attributes: AttributeRepo,
+            tags: TagRepo,
+            character_accounts: CharacterAccountRepo,
         }
     }
 }
