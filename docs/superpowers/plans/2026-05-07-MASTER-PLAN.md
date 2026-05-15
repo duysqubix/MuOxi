@@ -2,6 +2,35 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement each axis-plan task-by-task. This master document is the index — execute the linked axis-plans in dependency order.
 
+---
+
+## ⚠️ RESUME POINT (read this first if you're picking up a fresh session)
+
+**As of commit `e40d829` on master:**
+
+| Plan | Status | Commits |
+|---|---|---|
+| 1. SQLite migration + scrap JSON/watchdog | ✅ **COMPLETE** | `7251594`..`fefae04` (14 commits) |
+| 2. Topology collapse → `muoxi_server` | ✅ **COMPLETE** | `77bc3d8`..`5972110` (3 commits) |
+| 3. Object/Attribute/Tag model | ⏳ Not started | — |
+| 4. Command/Hook registry | ⏳ Not started | — |
+| 5. Persistent scheduler | ⏳ Not started | — |
+| 6. Complete auth state machine | ⏳ Not started | — |
+
+**To resume:**
+1. `git pull origin master` — get to `e40d829` or later
+2. `cargo build --workspace` should succeed without `libpq-dev` (sanity check)
+3. `cargo test -p db --features db-sqlite` — should show `account_roundtrip ... ok`
+4. Open the next axis-plan in dependency order — **start with Plan 3** (`2026-05-07-object-attribute-model.md`)
+5. Execute via `superpowers:subagent-driven-development` or inline per `superpowers:executing-plans`
+
+**Things that drifted between original plan and reality (worth knowing):**
+- Plan 2 originally wrote the binary entrypoint at `muoxi/src/server.rs`. Rust's module resolution for non-standard binary paths requires sub-modules to be **siblings** of the entry file. Solution applied during execution: move to `muoxi/src/server/main.rs` so that `pub mod cmds;` etc. resolve correctly. **Plans 4–6 reference `server/main.rs` accordingly.**
+- `account_characters` was created by Plan 1's migration. Plan 3's migration drops it and replaces with `character_accounts` (linking objects, not characters). This is the expected schema evolution — already encoded in Plan 3.
+- The `db` crate now re-exports `diesel` via `pub use diesel;` (added during Plan 1 Task 4). Downstream crates can use `use db::diesel::prelude::*;` without a direct `diesel` dep.
+
+---
+
 **Goal:** Transform MuOxi from "modernized Rust workspace with login scaffolding" into a credible v0.1 of an Evennia-class MUD framework in Rust.
 
 **Architecture:** Replace the JSON-canonical / watchdog-mirror persistence model with SQLite-as-source-of-truth (Postgres optional via Cargo feature). Collapse the staging/engine binary split into a single server. Introduce a generic Object + Attribute + Tag domain model so downstream developers can extend the world model without schema migrations. Add a command/hook registry as the extension surface and a persistent scheduler for timed events. Defer scripting (PyO3/mlua) to v0.2.

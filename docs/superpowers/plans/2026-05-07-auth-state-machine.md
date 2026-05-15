@@ -23,7 +23,7 @@
 - `muoxi/src/server/states.rs` — implement every state arm
 - `muoxi/src/server/commands/look.rs` — use `client.character_uid` (was `client.uid`)
 - `muoxi/src/server/commands/who.rs` — list connected characters from `Server.clients`
-- `muoxi/src/server.rs` — emit `at_disconnect` hook in `client_cleanup`
+- `muoxi/src/server/main.rs` — emit `at_disconnect` hook in `client_cleanup`
 - `db/src/structures.rs` — `Account::password_hash` uses argon2 verification helper
 
 **Delete:** none.
@@ -177,7 +177,7 @@ mod tests {
 pub use db::utils::UID as AccountUid;
 ```
 
-- [ ] **Step 2: Add `pub mod auth;` to `muoxi/src/server.rs` and the lib re-export**
+- [ ] **Step 2: Add `pub mod auth;` to `muoxi/src/server/main.rs` and the lib re-export**
 
 In `muoxi/src/lib.rs`, add `mod auth;` and `pub use crate::auth;` inside the `pub mod server` block.
 
@@ -189,7 +189,7 @@ Expected: 3 tests pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add muoxi/src/server/auth.rs muoxi/src/server.rs muoxi/src/lib.rs
+git add muoxi/src/server/auth.rs muoxi/src/server/main.rs muoxi/src/lib.rs
 git commit -m "feat(server): argon2 password hashing + AuthBuffer + name/password validators"
 ```
 
@@ -739,11 +739,11 @@ git commit -m "feat(server): MainMenu lists/selects/creates characters; transiti
 ## Task 9: Wire `at_disconnect` hook + clean up `Quit`
 
 **Files:**
-- Modify: `muoxi/src/server.rs`
+- Modify: `muoxi/src/server/main.rs`
 
 - [ ] **Step 1: Update `client_cleanup` to fire the hook**
 
-In `/home/duys/.repos/MuOxi/muoxi/src/server.rs`, change `client_cleanup`'s signature and body:
+In `/home/duys/.repos/MuOxi/muoxi/src/server/main.rs`, change `client_cleanup`'s signature and body:
 
 ```rust
 pub async fn client_cleanup(
@@ -795,7 +795,7 @@ Expected: `Finished`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add muoxi/src/server.rs
+git add muoxi/src/server/main.rs
 git commit -m "feat(server): client_cleanup fires at_disconnect with account_uid"
 ```
 

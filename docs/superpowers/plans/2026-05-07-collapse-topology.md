@@ -1,10 +1,16 @@
 # Topology Collapse Implementation Plan
 
+> ## ✅ STATUS: COMPLETE (commits `77bc3d8`..`5972110` on master)
+>
+> All 9 tasks shipped. Verified: `cargo build --workspace` produces `muoxi_server` + `muoxi_web`; smoke-tested by binding `127.0.0.1:8000` and serving the welcome banner. Skip this plan when resuming — it's done.
+>
+> **One delta from the original plan worth knowing:** the binary entrypoint actually landed at `muoxi/src/server/main.rs`, not `muoxi/src/server.rs`. Rust's module resolution for non-standard binary paths requires child modules to be **siblings** of the entry file — putting it at `src/server.rs` made `pub mod cmds;` look for `src/cmds.rs` instead of `src/server/cmds.rs`. Moving the entry into the dir as `src/server/main.rs` fixes this. **Plans 4-6 have been updated to reference `server/main.rs`.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Merge `muoxi_staging` and `muoxi_engine` into a single `muoxi_server` binary so client commands flow through one Tokio runtime instead of two TCP servers.
 
-**Architecture:** The current `staging_proxy.rs` becomes `server.rs`. Game-logic (currently the trivial echo loop in `muoxi/src/engine/muoxi.rs`) becomes a module `engine` inside the server crate, invoked when a session enters `ConnStates::Playing`. The `transfer()` function and the engine TCP listener disappear. The `webserver` (websocket bridge) keeps its own binary because it's a protocol adapter, not game logic.
+**Architecture:** The current `staging_proxy.rs` becomes `server/main.rs`. Game-logic (currently the trivial echo loop in `muoxi/src/engine/muoxi.rs`) becomes a module `engine` inside the server module, invoked when a session enters `ConnStates::Playing`. The `transfer()` function and the engine TCP listener disappear. The `webserver` (websocket bridge) keeps its own binary because it's a protocol adapter, not game logic.
 
 **Tech Stack:** Same as parent — Tokio 1.x, no new deps.
 

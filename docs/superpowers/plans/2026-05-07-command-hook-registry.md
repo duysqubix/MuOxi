@@ -27,7 +27,7 @@
 - `examples/extension/src/main.rs` — minimal downstream-game example
 
 **Modify:**
-- `muoxi/src/server.rs` — construct `Registry` at startup; thread it into `process()`
+- `muoxi/src/server/main.rs` — construct `Registry` at startup; thread it into `process()`
 - `muoxi/src/server/prelude.rs` — extend `Command` trait with `lock` + `CommandContext`
 - `muoxi/src/server/cmds.rs` — extend `CmdSet` with `priority` + `merge_kind` + `parent`
 - `muoxi/src/server/states.rs` — `Playing` arm dispatches via `Registry::resolve_command`
@@ -189,13 +189,13 @@ impl WorldApi {
 Run: `cd /home/duys/.repos/MuOxi && cargo check -p muoxi`
 Expected: errors only from `mod world;` not yet declared.
 
-Add `pub mod world;` to `/home/duys/.repos/MuOxi/muoxi/src/server.rs` mod block.
+Add `pub mod world;` to `/home/duys/.repos/MuOxi/muoxi/src/server/main.rs` mod block.
 
 - [ ] **Step 3: Verify again, commit**
 
 ```bash
 cd /home/duys/.repos/MuOxi && cargo check -p muoxi
-git add muoxi/src/server/world.rs muoxi/src/server.rs
+git add muoxi/src/server/world.rs muoxi/src/server/main.rs
 git commit -m "feat(server): WorldApi DB facade with hook-firing methods"
 ```
 
@@ -304,7 +304,7 @@ pub fn establish_in_memory() -> Conn {
 
 Then in the test, replace `DatabaseHandler::connect()` with a manual construction using the in-memory helper (apply schema first via `include_str!`). For brevity in this plan, this test is left as written above; mark it `#[ignore]` if running `cargo test` would otherwise mutate `data/world.db`.
 
-- [ ] **Step 2: Add `pub mod locks;` to `muoxi/src/server.rs`**
+- [ ] **Step 2: Add `pub mod locks;` to `muoxi/src/server/main.rs`**
 
 - [ ] **Step 3: Verify**
 
@@ -314,7 +314,7 @@ Expected: `Finished`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add muoxi/src/server/locks.rs muoxi/src/server.rs
+git add muoxi/src/server/locks.rs muoxi/src/server/main.rs
 git commit -m "feat(server): minimal lock-expression evaluator (all/false/perm)"
 ```
 
@@ -469,7 +469,7 @@ In `muoxi/Cargo.toml`:
 parking_lot = { workspace = true }
 ```
 
-- [ ] **Step 3: Add `pub mod hooks;` to `muoxi/src/server.rs`**
+- [ ] **Step 3: Add `pub mod hooks;` to `muoxi/src/server/main.rs`**
 
 - [ ] **Step 4: Verify**
 
@@ -479,7 +479,7 @@ Expected: `Finished`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Cargo.toml muoxi/Cargo.toml muoxi/src/server/hooks.rs muoxi/src/server.rs
+git add Cargo.toml muoxi/Cargo.toml muoxi/src/server/hooks.rs muoxi/src/server/main.rs
 git commit -m "feat(server): Hook trait + Hooks collection (cancelable + fire-and-forget)"
 ```
 
@@ -747,7 +747,7 @@ impl Registry {
 }
 ```
 
-- [ ] **Step 3: Add `pub mod typeclass;` and `pub mod registry;` to `muoxi/src/server.rs`**
+- [ ] **Step 3: Add `pub mod typeclass;` and `pub mod registry;` to `muoxi/src/server/main.rs`**
 
 - [ ] **Step 4: Verify**
 
@@ -757,7 +757,7 @@ Expected: `Finished`. (Plan 4's `Command` trait extension comes in Task 6 — fo
 - [ ] **Step 5: Commit**
 
 ```bash
-git add muoxi/src/server/typeclass.rs muoxi/src/server/registry.rs muoxi/src/server.rs
+git add muoxi/src/server/typeclass.rs muoxi/src/server/registry.rs muoxi/src/server/main.rs
 git commit -m "feat(server): TypeClass trait + Registry with type/command/hook registration"
 ```
 
@@ -1173,7 +1173,7 @@ impl Command for CmdWho {
 }
 ```
 
-- [ ] **Step 6: Add `pub mod commands;` to `muoxi/src/server.rs`**
+- [ ] **Step 6: Add `pub mod commands;` to `muoxi/src/server/main.rs`**
 
 - [ ] **Step 7: Verify**
 
@@ -1183,7 +1183,7 @@ Expected: errors only in `server.rs` (Task 10 fixes process() args).
 - [ ] **Step 8: Commit**
 
 ```bash
-git add muoxi/src/server/commands/ muoxi/src/server.rs
+git add muoxi/src/server/commands/ muoxi/src/server/main.rs
 git commit -m "feat(server): built-in look/say/quit/who commands"
 ```
 
@@ -1192,11 +1192,11 @@ git commit -m "feat(server): built-in look/say/quit/who commands"
 ## Task 10: Wire registry through `server.rs::main` → `process()`
 
 **Files:**
-- Modify: `muoxi/src/server.rs`
+- Modify: `muoxi/src/server/main.rs`
 
 - [ ] **Step 1: Update `main()` to construct registry, world, and built-ins**
 
-Open `/home/duys/.repos/MuOxi/muoxi/src/server.rs`. Add imports near the top:
+Open `/home/duys/.repos/MuOxi/muoxi/src/server/main.rs`. Add imports near the top:
 
 ```rust
 use crate::registry::Registry;
@@ -1289,7 +1289,7 @@ Expected: welcome banner, then a look response or "you don't seem to exist" depe
 - [ ] **Step 5: Commit**
 
 ```bash
-git add muoxi/src/server.rs
+git add muoxi/src/server/main.rs
 git commit -m "feat(server): construct Registry+WorldApi at startup; thread through process()"
 ```
 
@@ -1445,7 +1445,7 @@ fn main() {
 
 NOTE: Real downstream MUDs will not have a separate `main.rs` — they will fork or vendor `muoxi_server`'s main and inject their registrations before `process()` runs. This example is intentionally not runnable on its own; it just documents the API.
 
-- [ ] **Step 4: Add a `pub use` re-export in `muoxi/src/server.rs` so external crates can hit `muoxi::server::*`**
+- [ ] **Step 4: Add a `pub use` re-export in `muoxi/src/server/main.rs` so external crates can hit `muoxi::server::*`**
 
 Add to `muoxi/src/lib.rs`:
 

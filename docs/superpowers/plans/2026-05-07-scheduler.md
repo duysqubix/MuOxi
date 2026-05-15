@@ -28,7 +28,7 @@
 - `db/src/lib.rs` — `DatabaseHandler` gains `scripts: ScriptRepo` field
 - `muoxi/src/server/registry.rs` — `Registry` gains script-handler map + `register_script_handler` / `script_handler`
 - `muoxi/src/server/world.rs` — `WorldApi` gains script CRUD wrappers
-- `muoxi/src/server.rs` — spawn scheduler task at startup
+- `muoxi/src/server/main.rs` — spawn scheduler task at startup
 - `muoxi/src/lib.rs` — re-export `scheduler`, `scripts`
 - root and `db/`/`muoxi/` AGENTS.md — document the subsystem
 
@@ -734,7 +734,7 @@ impl Scheduler {
 }
 ```
 
-- [ ] **Step 2: Add `pub mod scheduler;` to `muoxi/src/server.rs` and the lib re-export**
+- [ ] **Step 2: Add `pub mod scheduler;` to `muoxi/src/server/main.rs` and the lib re-export**
 
 In `muoxi/src/lib.rs` (created in Plan 4 Task 12), add `mod scheduler;` and `pub use crate::scheduler;` inside the `pub mod server` block.
 
@@ -746,7 +746,7 @@ Expected: `Finished`.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add muoxi/src/server/scheduler.rs muoxi/src/lib.rs muoxi/src/server.rs
+git add muoxi/src/server/scheduler.rs muoxi/src/lib.rs muoxi/src/server/main.rs
 git commit -m "feat(server): Scheduler task + ScriptHandler trait"
 ```
 
@@ -813,7 +813,7 @@ impl ScriptHandler for HeartbeatHandler {
 }
 ```
 
-- [ ] **Step 3: Add `pub mod scripts;` to `muoxi/src/server.rs` (and lib re-export)**
+- [ ] **Step 3: Add `pub mod scripts;` to `muoxi/src/server/main.rs` (and lib re-export)**
 
 - [ ] **Step 4: Verify**
 
@@ -823,7 +823,7 @@ Expected: `Finished`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add muoxi/src/server/scripts/ muoxi/src/server.rs muoxi/src/lib.rs
+git add muoxi/src/server/scripts/ muoxi/src/server/main.rs muoxi/src/lib.rs
 git commit -m "feat(server): heartbeat ScriptHandler as worked example"
 ```
 
@@ -832,7 +832,7 @@ git commit -m "feat(server): heartbeat ScriptHandler as worked example"
 ## Task 8: Spawn the scheduler at server startup + register built-ins
 
 **Files:**
-- Modify: `muoxi/src/server.rs`
+- Modify: `muoxi/src/server/main.rs`
 
 - [ ] **Step 1: Update `main()`**
 
@@ -871,7 +871,7 @@ Expected: server stderr shows multiple `tick N` log lines from the heartbeat han
 - [ ] **Step 3: Commit**
 
 ```bash
-git add muoxi/src/server.rs
+git add muoxi/src/server/main.rs
 git commit -m "feat(server): spawn Scheduler at startup; register built-in handlers"
 ```
 

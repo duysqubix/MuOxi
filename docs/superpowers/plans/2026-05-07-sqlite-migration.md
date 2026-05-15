@@ -1,5 +1,9 @@
 # SQLite Migration + JSON/Watchdog Removal Implementation Plan
 
+> ## ✅ STATUS: COMPLETE (commits `7251594`..`fefae04` on master)
+>
+> All 15 tasks shipped. Verified: `cargo build --workspace` succeeds without `libpq-dev`; `cargo test -p db --features db-sqlite` passes. Postgres opt-in path still type-checks via `cargo check -p db --no-default-features --features db-postgres`. Skip this plan when resuming — it's done.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace Postgres with SQLite as the default backend, delete the JSON-canonical / watchdog mirror model, keep Postgres available behind a Cargo feature for production deployments.
