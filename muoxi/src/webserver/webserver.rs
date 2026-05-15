@@ -3,12 +3,18 @@
 //! to the staging proxy at `127.0.0.1:8000`. Text messages are forwarded both
 //! ways (line-oriented).
 //!
-//! Run after starting `muoxi_staging`.
+//! Plain HTTP GET (no `Upgrade: websocket` header) on the same port serves a
+//! minimal in-browser test client (`resources/web/index.html`) so a developer
+//! can `docker compose up` and point a browser at the port without needing a
+//! separate WS tool.
+//!
+//! Run after starting `muoxi_server`.
 //!
 //! ```bash
-//! cargo run --bin muoxi_staging   # in one terminal
-//! cargo run --bin muoxi_web       # in another
-//! # then connect with any WS client to ws://127.0.0.1:8080
+//! cargo run --bin muoxi_server   # in one terminal
+//! cargo run --bin muoxi_web      # in another
+//! # then either point a browser at http://127.0.0.1:8080
+//! # or connect any WS client to ws://127.0.0.1:8080
 //! ```
 
 use futures_util::{SinkExt, StreamExt};
@@ -21,8 +27,36 @@ use tokio_tungstenite::tungstenite::Message;
 
 type AnyError = Box<dyn Error + Send + Sync>;
 
-async fn handle_client(ws_stream: TcpStream, staging_addr: String) -> Result<(), AnyError> {
-    let ws = accept_async(ws_stream).await?;
+const INDEX_HTML: &str = include_str!("../../../resources/web/index.html");
+
+fn looks_like_ws_upgrade(preview: &str) -> bool {
+    preview.lines().any(|line| {
+        let lc = line.to_ascii_lowercase();
+        lc.starts_with("upgrade:") && lc.contains("websocket")
+    })
+}
+
+async fn serve_index(mut stream: TcpStream) -> Result<(), AnyError> {
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        INDEX_HTML.len(),
+        INDEX_HTML,
+    );
+    stream.write_all(response.as_bytes()).await?;
+    let _ = stream.shutdown().await;
+    Ok(())
+}
+
+async fn handle_client(stream: TcpStream, staging_addr: String) -> Result<(), AnyError> {
+    let mut buf = [0u8; 1024];
+    let n = stream.peek(&mut buf).await?;
+    let preview = std::str::from_utf8(&buf[..n]).unwrap_or("");
+
+    if !looks_like_ws_upgrade(preview) {
+        return serve_index(stream).await;
+    }
+
+    let ws = accept_async(stream).await?;
     let (mut ws_tx, mut ws_rx) = ws.split();
 
     let tcp = TcpStream::connect(&staging_addr).await?;

@@ -108,8 +108,21 @@ REDIS_SERVER=redis://127.0.0.1 cargo run --bin muoxi_server
 ### Docker
 
 ```bash
-docker compose up server
+docker compose up         # builds image, starts redis + muoxi_server + muoxi_web
+telnet 127.0.0.1 8000     # telnet/tt++/mudlet client
+open http://127.0.0.1:8080  # browser → built-in JS WebSocket test client
 ```
+
+If host ports 8000/8080 are taken, override with env vars:
+
+```bash
+MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 docker compose up
+```
+
+The web port serves a tiny HTML page on plain GET requests, and upgrades to a
+WebSocket bridge when a client sends `Upgrade: websocket` — both share one
+port (8080). The page connects back to `ws://<same-host>` automatically, so it
+works through any port override.
 
 ## Quick Start Guide
 

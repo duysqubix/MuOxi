@@ -14,9 +14,22 @@ services:
       PROXY_ADDR: 0.0.0.0:8000
     ports:
       - "${MUOXI_SERVER_PORT:-8000}:8000"
-      - "${MUOXI_WEB_PORT:-8080}:8080"
     depends_on:
       - redis
+    networks:
+      - backend
+
+  web:
+    image: muoxi:dev
+    command: ["muoxi_web"]
+    environment:
+      WEB_ADDR: 0.0.0.0:8080
+      PROXY_ADDR: server:8000
+      RUST_LOG: info
+    ports:
+      - "${MUOXI_WEB_PORT:-8080}:8080"
+    depends_on:
+      - server
     networks:
       - backend
 

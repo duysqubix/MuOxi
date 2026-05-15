@@ -25,7 +25,7 @@ muoxi/
 | Binary | Source | Listens | Status |
 |--------|--------|---------|--------|
 | `muoxi_server` | `src/server/main.rs` | `127.0.0.1:8000` (override `PROXY_ADDR`) | Combined login + game logic. State machine in `Playing` echoes via `engine::handle_input`. Full auth flow lands in Plan 6. |
-| `muoxi_web` | `src/webserver/webserver.rs` | `127.0.0.1:8080` (override `WEB_ADDR`); connects to `PROXY_ADDR` | Working WS-to-TCP bridge. Per-client TCP outbound. |
+| `muoxi_web` | `src/webserver/webserver.rs` | `127.0.0.1:8080` (override `WEB_ADDR`); connects to `PROXY_ADDR` | Dual-purpose on a single port: HTTP GET serves `resources/web/index.html` (browser test client); WS upgrade bridges to TCP backend. Per-client TCP outbound. |
 
 ## KEY DEPENDENCIES
 

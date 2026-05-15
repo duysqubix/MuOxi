@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MuOxi WS test client</title>
+<style>
+  body{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0a0f12;color:#d6e2e9;margin:0;padding:1rem;}
+  h1{color:#6cf;font-weight:400;margin:0 0 .5rem;font-size:1rem;}
+  h1 small{color:#789;font-weight:400;}
+  #log{height:70vh;overflow-y:auto;white-space:pre-wrap;border:1px solid #233;padding:.6rem;background:#06090b;border-radius:4px;font-size:.85rem;line-height:1.4;}
+  #log .meta{color:#789;font-style:italic;}
+  #log .recv{color:#6fc;}
+  #log .send{color:#fc6;}
+  #log .err{color:#f66;}
+  #row{display:flex;margin-top:.5rem;gap:.5rem;}
+  #input{flex:1;padding:.5rem;background:#1a2024;color:#d6e2e9;border:1px solid #233;font-family:inherit;font-size:.9rem;border-radius:4px;}
+  #input:focus{outline:none;border-color:#6cf;}
+</style>
+</head>
+<body>
+<h1>MuOxi WS bridge <small id="status">connecting…</small></h1>
+<div id="log"></div>
+<div id="row">
+  <input id="input" autofocus autocomplete="off" placeholder="type a command and press Enter">
+</div>
+<script>
+const log = document.getElementById('log');
+const inp = document.getElementById('input');
+const status = document.getElementById('status');
+const print = (msg, cls) => {
+  const el = document.createElement('div');
+  if (cls) el.className = cls;
+  el.textContent = msg;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+};
+const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+const url = `${proto}//${location.host}`;
+print(`opening ${url}`, 'meta');
+const ws = new WebSocket(url);
+ws.onopen = () => { status.textContent = 'connected'; status.style.color = '#6f6'; print('[connected]', 'meta'); };
+ws.onclose = () => { status.textContent = 'disconnected'; status.style.color = '#f66'; print('[disconnected]', 'meta'); };
+ws.onerror = () => print('[error]', 'err');
+ws.onmessage = (e) => print(e.data, 'recv');
+inp.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && inp.value && ws.readyState === WebSocket.OPEN) {
+    ws.send(inp.value);
+    print('> ' + inp.value, 'send');
+    inp.value = '';
+  }
+});
+</script>
+</body>
+</html>
