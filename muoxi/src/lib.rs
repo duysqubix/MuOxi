@@ -149,7 +149,7 @@ pub async fn process(
             .await
         {
             Ok(dev_char) => {
-                client.uid = dev_char.uid;
+                client.character_uid = Some(dev_char.uid);
                 client.state = ConnStates::Playing;
                 let _ = send(
                     &mut client,
@@ -158,7 +158,9 @@ pub async fn process(
                 .await;
             }
             Err(e) => {
-                eprintln!("DEV_AUTOLOGIN failed to create dev character: {e}; falling back to auth flow");
+                eprintln!(
+                    "DEV_AUTOLOGIN failed to create dev character: {e}; falling back to auth flow"
+                );
                 client.state = ConnStates::AwaitingName;
                 display_welcome(&mut client).await?;
             }

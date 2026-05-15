@@ -15,7 +15,26 @@ impl Command for CmdWho {
     }
 
     async fn execute_cmd(&self, ctx: CommandContext<'_>) -> CommandResult<()> {
-        let _ = send(ctx.client, "Players online: (server-aware listing lands with the auth state machine)").await;
+        let mut listed: Vec<String> = ctx
+            .world
+            .with_db(|db| {
+                use db::diesel::prelude::*;
+                use db::schema::objects::dsl;
+                dsl::objects
+                    .filter(dsl::type_key.eq("character"))
+                    .select(dsl::name)
+                    .load::<String>(&mut db.handle)
+                    .unwrap_or_default()
+            })
+            .await;
+        listed.sort();
+        listed.dedup();
+        let body = if listed.is_empty() {
+            "No characters in the world yet.".to_string()
+        } else {
+            format!("Characters in the world ({}):\n  {}", listed.len(), listed.join("\n  "))
+        };
+        let _ = send(ctx.client, &body).await;
         Ok(())
     }
 }

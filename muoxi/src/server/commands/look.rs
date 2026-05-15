@@ -18,9 +18,13 @@ impl Command for CmdLook {
     }
 
     async fn execute_cmd(&self, ctx: CommandContext<'_>) -> CommandResult<()> {
+        let Some(my_uid) = ctx.client.character_uid else {
+            let _ = send(ctx.client, "You don't have a character to look around with.").await;
+            return Ok(());
+        };
         let me = ctx
             .world
-            .get_object(ctx.client.uid)
+            .get_object(my_uid)
             .await
             .map_err(|_| "db error")?;
         let me = me.ok_or("you don't seem to exist")?;
@@ -54,7 +58,7 @@ impl Command for CmdLook {
             .map_err(|_| "db error")?;
         let visible: Vec<String> = contents
             .into_iter()
-            .filter(|o| o.uid != ctx.client.uid)
+            .filter(|o| o.uid != my_uid)
             .map(|o| format!("  {}", o.name))
             .collect();
         let here_block = if visible.is_empty() {
