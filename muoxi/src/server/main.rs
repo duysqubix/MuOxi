@@ -14,6 +14,7 @@
 pub mod cmds;
 pub mod comms;
 pub mod engine;
+pub mod locks;
 pub mod prelude;
 pub mod states;
 pub mod world;
