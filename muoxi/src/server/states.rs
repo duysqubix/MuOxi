@@ -35,12 +35,49 @@ impl ConnStates {
     ) -> LinesCodecResult<Self> {
         match self {
             ConnStates::AwaitingName => {
-                if response.eq_ignore_ascii_case("new") {
-                    Ok(ConnStates::AwaitingNewName)
-                } else if !response.trim().is_empty() {
-                    Ok(ConnStates::AwaitingPassword)
-                } else {
-                    Ok(ConnStates::AwaitingName)
+                let trimmed = response.trim();
+                if trimmed.eq_ignore_ascii_case("new") {
+                    crate::send(
+                        client,
+                        "Choose an account name (3-32 chars, alphanumeric, start with letter):",
+                    )
+                    .await?;
+                    return Ok(ConnStates::AwaitingNewName);
+                }
+                if trimmed.is_empty() {
+                    crate::send(
+                        client,
+                        "Enter your account name (or `new` to create one):",
+                    )
+                    .await?;
+                    return Ok(ConnStates::AwaitingName);
+                }
+                if !crate::auth::is_valid_name(trimmed) {
+                    crate::send(
+                        client,
+                        "Invalid name. Type `new` to create an account, or enter your existing account name:",
+                    )
+                    .await?;
+                    return Ok(ConnStates::AwaitingName);
+                }
+                match world.find_account_by_name(trimmed).await {
+                    Some(account) => {
+                        client.auth_buffer.pending_name = Some(account.name.clone());
+                        client.account_uid = Some(account.uid);
+                        crate::send(client, "Password:").await?;
+                        Ok(ConnStates::AwaitingPassword)
+                    }
+                    None => {
+                        crate::send(
+                            client,
+                            &format!(
+                                "No account named {:?}. Enter another name, or `new`:",
+                                trimmed
+                            ),
+                        )
+                        .await?;
+                        Ok(ConnStates::AwaitingName)
+                    }
                 }
             }
             ConnStates::Playing => {

@@ -3,9 +3,11 @@
 //! Commands receive a `&WorldApi`. Direct Diesel access is not exposed.
 
 use db::DatabaseHandler;
-use db::objects::Object;
-use db::utils::UID;
 use db::diesel::QueryResult;
+use db::diesel::prelude::*;
+use db::objects::Object;
+use db::structures::account::Account;
+use db::utils::UID;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -99,6 +101,28 @@ impl WorldApi {
         let mut db = self.db.lock().await;
         let DatabaseHandler { handle, objects, .. } = &mut *db;
         objects.contents_of(handle, location)
+    }
+
+    /// Look up an account by name (case-sensitive). `None` if absent.
+    pub async fn find_account_by_name(&self, name: &str) -> Option<Account> {
+        let mut db = self.db.lock().await;
+        use db::schema::accounts::dsl;
+        dsl::accounts
+            .filter(dsl::name.eq(name))
+            .first::<Account>(&mut db.handle)
+            .ok()
+    }
+
+    /// Get the stored password hash for an account UID. `None` if the account
+    /// no longer exists.
+    pub async fn account_password_hash(&self, account_uid: UID) -> Option<String> {
+        let mut db = self.db.lock().await;
+        use db::schema::accounts::dsl;
+        dsl::accounts
+            .filter(dsl::uid.eq(account_uid))
+            .select(dsl::password_hash)
+            .first::<String>(&mut db.handle)
+            .ok()
     }
 
     /// Inner DB access for advanced callers (still locks).
