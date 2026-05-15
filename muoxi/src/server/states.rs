@@ -126,6 +126,76 @@ impl ConnStates {
                 .await?;
                 Ok(ConnStates::MainMenu)
             }
+            ConnStates::AwaitingNewName => {
+                let trimmed = response.trim();
+                if !crate::auth::is_valid_name(trimmed) {
+                    crate::send(
+                        client,
+                        "Names are 3-32 chars, alphanumeric/underscore, and start with a letter. Try again:",
+                    )
+                    .await?;
+                    return Ok(ConnStates::AwaitingNewName);
+                }
+                if world.find_account_by_name(trimmed).await.is_some() {
+                    crate::send(client, "That name is taken. Choose another:").await?;
+                    return Ok(ConnStates::AwaitingNewName);
+                }
+                client.auth_buffer.pending_name = Some(trimmed.to_string());
+                crate::send(client, "Password (6+ chars, no whitespace):").await?;
+                Ok(ConnStates::AwaitingNewPassword)
+            }
+            ConnStates::AwaitingNewPassword => {
+                if !crate::auth::is_valid_password(&response) {
+                    crate::send(
+                        client,
+                        "Password must be 6+ chars with no whitespace. Try again:",
+                    )
+                    .await?;
+                    return Ok(ConnStates::AwaitingNewPassword);
+                }
+                client.auth_buffer.first_password_attempt = Some(response.clone());
+                crate::send(client, "Confirm password:").await?;
+                Ok(ConnStates::ConfirmNewPassword)
+            }
+            ConnStates::ConfirmNewPassword => {
+                let first = client.auth_buffer.first_password_attempt.clone();
+                let name = client.auth_buffer.pending_name.clone();
+                let (Some(first), Some(name)) = (first, name) else {
+                    client.auth_buffer.clear();
+                    crate::send(client, "Session lost. Enter your account name:").await?;
+                    return Ok(ConnStates::AwaitingName);
+                };
+                if first != response {
+                    client.auth_buffer.first_password_attempt = None;
+                    crate::send(client, "Passwords don't match. Enter password again:").await?;
+                    return Ok(ConnStates::AwaitingNewPassword);
+                }
+                let hash = match crate::auth::hash_password(&response) {
+                    Ok(h) => h,
+                    Err(e) => {
+                        crate::send(client, &format!("Internal error: {e}. Disconnecting."))
+                            .await?;
+                        return Ok(ConnStates::Quit);
+                    }
+                };
+                let acct = match world.create_account(&name, &hash, "").await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        client.auth_buffer.clear();
+                        crate::send(client, &format!("Could not create account: {e}.")).await?;
+                        return Ok(ConnStates::AwaitingName);
+                    }
+                };
+                client.account_uid = Some(acct.uid);
+                client.auth_buffer.clear();
+                crate::send(client, &format!("Account {} created.", acct.name)).await?;
+                crate::send(
+                    client,
+                    "Type `new <name>` to create your first character, or `quit`.",
+                )
+                .await?;
+                Ok(ConnStates::MainMenu)
+            }
             ConnStates::Playing => {
                 if response.trim().eq_ignore_ascii_case("quit") {
                     return Ok(ConnStates::Quit);

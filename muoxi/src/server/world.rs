@@ -7,8 +7,9 @@ use db::diesel::QueryResult;
 use db::diesel::prelude::*;
 use db::objects::Object;
 use db::structures::account::Account;
-use db::utils::UID;
+use db::utils::{UID, gen_uid};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 /// Database facade for the engine. Wraps the connection in a Tokio mutex so
@@ -123,6 +124,35 @@ impl WorldApi {
             .select(dsl::password_hash)
             .first::<String>(&mut db.handle)
             .ok()
+    }
+
+    /// Create a new account. Returns the inserted row.
+    /// Fails with "name probably taken" if the unique-name constraint fires.
+    pub async fn create_account(
+        &self,
+        name: &str,
+        password_hash: &str,
+        email: &str,
+    ) -> Result<Account, &'static str> {
+        let uid = gen_uid();
+        let created_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let mut db = self.db.lock().await;
+        use db::schema::accounts;
+        let row = Account {
+            uid,
+            name: name.to_string(),
+            password_hash: password_hash.to_string(),
+            email: email.to_string(),
+            created_at,
+        };
+        db::diesel::insert_into(accounts::table)
+            .values(&row)
+            .execute(&mut db.handle)
+            .map_err(|_| "insert failed (name probably taken)")?;
+        Ok(row)
     }
 
     /// Inner DB access for advanced callers (still locks).
