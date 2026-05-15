@@ -1,6 +1,7 @@
 //! Connection-state types: `Server` (shared), `Client` (per-connection),
 //! `Comms` (the per-client SocketAddr+Tx pair stored in `Server`), `Message`.
 
+use crate::auth::AuthBuffer;
 use crate::prelude::{Rx, Tx};
 use crate::states::ConnStates;
 use db::utils::UID;
@@ -27,7 +28,7 @@ pub enum Message {
 /// `process()` lifetime.
 #[derive(Debug)]
 pub struct Client {
-    /// unique id for client
+    /// session UID (socket-tied, set in Client::new)
     pub uid: UID,
     /// current state of connected client
     pub state: ConnStates,
@@ -35,6 +36,12 @@ pub struct Client {
     pub lines: Framed<TcpStream, LinesCodec>,
     /// socket address of connected client
     pub addr: SocketAddr,
+    /// authenticated account UID, set on successful login
+    pub account_uid: Option<UID>,
+    /// selected character UID, set on character-select / character-create
+    pub character_uid: Option<UID>,
+    /// scratch space for auth state transitions
+    pub auth_buffer: AuthBuffer,
     rx: Rx,
 }
 
@@ -55,6 +62,9 @@ impl Client {
             state: ConnStates::AwaitingName,
             lines: Framed::new(stream, LinesCodec::new()),
             addr,
+            account_uid: None,
+            character_uid: None,
+            auth_buffer: AuthBuffer::default(),
             rx,
         })
     }
