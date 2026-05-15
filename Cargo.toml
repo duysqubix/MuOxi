@@ -3,8 +3,6 @@ resolver = "2"
 members = [
     "muoxi",
     "db",
-    "benchmarks",
-    "tester",
     "examples/extension",
 ]
 
