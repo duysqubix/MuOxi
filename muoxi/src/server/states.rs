@@ -41,6 +41,13 @@ impl ConnStates {
                 .expect(&errmsg);
                 Ok(ConnStates::AwaitingName)
             }
+            ConnStates::Playing => {
+                if response.trim().eq_ignore_ascii_case("quit") {
+                    return Ok(ConnStates::Quit);
+                }
+                crate::engine::handle_input(client, &response).await?;
+                Ok(ConnStates::Playing)
+            }
             _ => Ok(ConnStates::Quit),
         }
     }

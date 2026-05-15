@@ -1,14 +1,19 @@
 #![deny(missing_docs)]
 
-//! ## Main Proxy Staging TCP Server
+//! ## MuOxi Server (unified staging + engine binary)
 //!
-//! All clients connect here, either via direct connection or through one of
-//! the supported proxy servers (MCCP, webserver, etc.). When a client moves
-//! to `ConnStates::Playing`, the proxy hands the byte stream off to the game
-//! engine via `transfer()`.
+//! Single Tokio runtime hosting protocol/login state machine and in-process
+//! game logic. Clients connect via direct TCP at `PROXY_ADDR` (default
+//! `127.0.0.1:8000`) or via the `muoxi_web` WebSocket bridge. When a session
+//! enters [`states::ConnStates::Playing`], per-line input is dispatched into
+//! [`engine::handle_input`].
+//!
+//! The v0.2 roadmap reintroduces a portal/server boundary with a framed
+//! protocol; until then this is one process.
 
 pub mod cmds;
 pub mod comms;
+pub mod engine;
 pub mod prelude;
 pub mod states;
 
@@ -34,8 +39,8 @@ pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> LinesCodecResult<
     Ok(())
 }
 
-/// Friendly async wrapper around recieving message from client
-/// Instead of panicing on wrong error, it will return an Option<String>
+/// Friendly async wrapper around recieving message from client.
+/// Instead of panicing on wrong error, it returns an `Option<String>`.
 pub async fn get<'a>(client: &'a mut Client) -> Option<String> {
     client.lines.next().await.and_then(|v| v.ok())
 }
@@ -105,25 +110,11 @@ pub async fn process(
     Ok(())
 }
 
-/// Turn the staging server into a proxy: relay bytes between `inbound` and
-/// the MuOxi game engine at `game_addr` until either side closes.
-pub async fn transfer(mut inbound: TcpStream, game_addr: String) -> Result<(), Box<dyn Error>> {
-    let mut outbound = TcpStream::connect(&game_addr).await?;
-    let inbound_addr = inbound.peer_addr()?;
-    let outbound_addr = outbound.peer_addr()?;
-
-    println!("Proxying {} <-> {}", inbound_addr, outbound_addr);
-
-    tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await?;
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     unsafe {
         env::set_var("RUST_LOG", "info,warn,error,test");
     }
-    let game_addr: String = env::var("GAME_ADDR").unwrap_or_else(|_| "127.0.0.1:4567".to_string());
     let proxy_addr: String =
         env::var("PROXY_ADDR").unwrap_or_else(|_| "127.0.0.1:8000".to_string());
 
@@ -131,10 +122,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let clients = Arc::new(Mutex::new(Server::new()));
 
-    println!(
-        "TCP Client listening on {} proxying to {}",
-        proxy_addr, game_addr
-    );
+    println!("MuOxi server listening on {}", proxy_addr);
 
     let listener = TcpListener::bind(&proxy_addr).await?;
 

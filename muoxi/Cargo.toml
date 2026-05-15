@@ -23,12 +23,8 @@ serde_json = { workspace = true }
 async-trait = { workspace = true }
 
 [[bin]]
-name = "muoxi_engine"
-path = "src/engine/muoxi.rs"
-
-[[bin]]
-name = "muoxi_staging"
-path = "src/staging/staging_proxy.rs"
+name = "muoxi_server"
+path = "src/server/main.rs"
 
 [[bin]]
 name = "muoxi_web"
