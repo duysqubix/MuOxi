@@ -12,6 +12,7 @@
 //! protocol; until then this is one process.
 
 pub mod cmds;
+pub mod commands;
 pub mod comms;
 pub mod engine;
 pub mod hooks;
@@ -23,8 +24,11 @@ pub mod typeclass;
 pub mod world;
 
 use crate::prelude::LinesCodecResult;
+use crate::registry::Registry;
 use crate::states::ConnStates;
+use crate::world::WorldApi;
 use comms::{Client, Server};
+use db::DatabaseHandler;
 use db::cache_structures::Cachable;
 use db::cache_structures::socket::CacheSocket;
 use db::utils::{UID, gen_uid};
@@ -75,6 +79,8 @@ pub async fn client_cleanup(uid: UID, server: &Arc<Mutex<Server>>, cache: CacheS
 /// client is handled within this function.
 pub async fn process(
     server: Arc<Mutex<Server>>,
+    registry: Arc<Registry>,
+    world: Arc<WorldApi>,
     stream: TcpStream,
     mut cache: CacheSocket,
 ) -> Result<(), Box<dyn Error>> {
@@ -101,7 +107,11 @@ pub async fn process(
             game_loop = false;
         }
         if let Some(response) = get(&mut client).await {
-            let new_state = client.state.clone().execute(&mut client, response).await?;
+            let new_state = client
+                .state
+                .clone()
+                .execute(&mut client, registry.clone(), world.clone(), response)
+                .await?;
             client.state = new_state;
             let state = format!("({:?})", client.state);
             send(&mut client, &state).await?;
@@ -125,6 +135,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     pretty_env_logger::init();
 
+    let world = Arc::new(WorldApi::new(DatabaseHandler::connect()));
+    let registry = Arc::new(Registry::new(world.clone()));
+    registry.register_builtin_types();
+    crate::commands::register_all(&registry);
+
     let clients = Arc::new(Mutex::new(Server::new()));
 
     println!("MuOxi server listening on {}", proxy_addr);
@@ -133,6 +148,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     while let Ok((stream, addr)) = listener.accept().await {
         let server = Arc::clone(&clients);
+        let registry = registry.clone();
+        let world = world.clone();
         println!("New user! on {}", addr);
 
         let addr = stream.peer_addr()?;
@@ -141,7 +158,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cache_socket.set_address(&addr).dump()?;
 
         tokio::spawn(async move {
-            if let Err(e) = process(server, stream, cache_socket).await {
+            if let Err(e) = process(server, registry, world, stream, cache_socket).await {
                 println!("An error occured; error={:?}", e);
             }
         });

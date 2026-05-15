@@ -1,19 +1,23 @@
 //! In-process game-logic entry point.
 //!
-//! When a session reaches [`ConnStates::Playing`](crate::states::ConnStates::Playing),
-//! per-line input is dispatched here. For v0.1 this is a placeholder that
-//! echoes the input prefixed with `"Game > "`; downstream framework users
-//! replace or extend this module.
-//!
-//! Future direction (Plan 4): this module will host the world API surface
-//! that scripts and command handlers call into.
+//! For v0.1 this is a thin pass-through to `cmds::dispatch`. The role of this
+//! module is to be the obvious extension point for downstream MUDs that want
+//! to add pre-/post-input processing (e.g., cooldown checks, idle timers,
+//! global hook firing) without touching `states::execute`.
 
 use crate::comms::Client;
 use crate::prelude::LinesCodecResult;
-use crate::send;
+use crate::registry::Registry;
+use crate::world::WorldApi;
+use std::sync::Arc;
 
 /// Handle a single line of input from a `Playing` client.
-pub async fn handle_input(client: &mut Client, input: &str) -> LinesCodecResult<()> {
-    let response = format!("Game > {}", input);
-    send(client, &response).await
+pub async fn handle_input(
+    client: &mut Client,
+    registry: Arc<Registry>,
+    world: Arc<WorldApi>,
+    input: &str,
+) -> LinesCodecResult<()> {
+    crate::cmds::dispatch(client, registry, world, input, "Huh?").await;
+    Ok(())
 }

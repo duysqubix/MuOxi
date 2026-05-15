@@ -1,67 +1,48 @@
 #![allow(missing_docs)]
 
-//! Definitions and collections of all commands found throughout MuOxi
-//! whether in the staging server or the game itself.
+//! Command dispatcher used by the connection-state handler.
 
 use crate::comms::Client;
-use crate::prelude::{Command, CommandResult};
-use crate::send;
-use async_trait::async_trait;
-use std::cmp::{Eq, PartialEq};
-use std::hash::Hash;
+use crate::prelude::CommandContext;
+use crate::registry::Registry;
+use crate::world::WorldApi;
+use std::sync::Arc;
 
-pub async fn do_cmd(
+/// Resolve and execute a single command line.
+///
+/// `input` is the raw line ("look at door"). The dispatcher looks up the
+/// first whitespace-delimited token as a command name in the `Registry`.
+/// If found, it runs the `lock` check and then `execute_cmd` with the rest
+/// of the line as `ctx.args`. If not found, sends `unknown_msg` to the client.
+pub async fn dispatch(
     client: &mut Client,
-    cmd: Option<&mut (dyn Command + Send)>,
-    errmsg: &str,
-) -> CommandResult<()> {
-    if let Some(cmd) = cmd {
-        cmd.execute_cmd(client).await?;
-    } else {
-        send(client, errmsg).await.unwrap();
-    }
-    Ok(())
-}
+    registry: Arc<Registry>,
+    world: Arc<WorldApi>,
+    input: &str,
+    unknown_msg: &str,
+) {
+    let Some(cmd) = registry.resolve_command(input) else {
+        let _ = crate::send(client, unknown_msg).await;
+        return;
+    };
 
-pub mod proxy_commands {
-    use super::*;
-
-    #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-    pub struct CmdProxyNew;
-
-    #[async_trait]
-    impl Command for CmdProxyNew {
-        fn name(&self) -> &str {
-            "new"
-        }
-
-        fn aliases(&self) -> Vec<&str> {
-            vec!["n"]
-        }
-
-        async fn execute_cmd(&self, _client: &mut Client) -> CommandResult<()> {
-            Ok(())
-        }
+    if !crate::locks::check(&world, cmd.lock(), Some(client.uid)).await {
+        let _ = crate::send(client, "You can't do that.").await;
+        return;
     }
 
-    #[derive(Debug, Clone, Hash, Eq, PartialEq)]
-    pub struct CmdProxyAccount;
+    let args = input
+        .split_once(' ')
+        .map(|(_, rest)| rest.trim())
+        .unwrap_or("");
 
-    #[async_trait]
-    impl Command for CmdProxyAccount {
-        fn name(&self) -> &str {
-            "account"
-        }
-
-        fn aliases(&self) -> Vec<&str> {
-            vec!["acc"]
-        }
-
-        async fn execute_cmd(&self, _client: &mut Client) -> CommandResult<()> {
-            Ok(())
-        }
+    let ctx = CommandContext {
+        client,
+        registry: registry.clone(),
+        world: world.clone(),
+        args,
+    };
+    if let Err(e) = cmd.execute_cmd(ctx).await {
+        let _ = crate::send(client, &format!("Command error: {e}")).await;
     }
 }
-
-#[allow(dead_code)]
-mod game_commands {}
