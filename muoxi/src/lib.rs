@@ -1,0 +1,133 @@
+//! MuOxi MUD framework — extension surface.
+//!
+//! Downstream MUDs depend on this crate to gain access to the framework's
+//! types (`Registry`, `Command`, `Hook`, `TypeClass`, `WorldApi`) and the
+//! built-in commands / typeclasses. The provided `muoxi_server` binary is
+//! one instance of an embedding — downstream developers vendor or fork the
+//! `main()` body to inject their own type/command/hook registrations before
+//! the listener spawns.
+//!
+//! See [`registry::Registry`] for the central extension surface.
+
+#[path = "server/cmds.rs"]
+pub mod cmds;
+#[path = "server/commands/mod.rs"]
+pub mod commands;
+#[path = "server/comms.rs"]
+pub mod comms;
+#[path = "server/engine.rs"]
+pub mod engine;
+#[path = "server/hooks.rs"]
+pub mod hooks;
+#[path = "server/locks.rs"]
+pub mod locks;
+#[path = "server/prelude.rs"]
+pub mod prelude;
+#[path = "server/registry.rs"]
+pub mod registry;
+#[path = "server/states.rs"]
+pub mod states;
+#[path = "server/typeclass.rs"]
+pub mod typeclass;
+#[path = "server/world.rs"]
+pub mod world;
+
+use crate::comms::{Client, Server};
+use crate::prelude::LinesCodecResult;
+use crate::registry::Registry;
+use crate::states::ConnStates;
+use crate::world::WorldApi;
+use db::cache_structures::Cachable;
+use db::cache_structures::socket::CacheSocket;
+use db::utils::{UID, gen_uid};
+use futures_util::SinkExt;
+use std::error::Error;
+use std::sync::Arc;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tokio_stream::StreamExt;
+
+/// Friendly async wrapper for sending messages to a client.
+pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> LinesCodecResult<()> {
+    client.lines.send(msg.to_string()).await?;
+    Ok(())
+}
+
+/// Friendly async wrapper around recieving message from client.
+/// Instead of panicing on wrong error, it returns an `Option<String>`.
+pub async fn get<'a>(client: &'a mut Client) -> Option<String> {
+    client.lines.next().await.and_then(|v| v.ok())
+}
+
+/// Send the welcome banner from `resources/welcome.txt` (relative to CWD).
+pub async fn display_welcome<'a>(client: &'a mut Client) -> LinesCodecResult<()> {
+    let mut file = File::open("resources/welcome.txt").await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+    client.lines.send(contents).await?;
+    Ok(())
+}
+
+/// Remove the client from the server roster and clear its Redis socket entry.
+pub async fn client_cleanup(uid: UID, server: &Arc<Mutex<Server>>, cache: CacheSocket) {
+    let mut server = server.lock().await;
+    server.clients.remove(&uid);
+
+    if cache.destruct().is_ok() {
+        println!("Remove client with uid: {}", uid);
+    } else {
+        println!("Unable to remove client: {} from redis.", uid);
+    }
+}
+
+/// Per-client processing loop. The entire lifetime of the connected
+/// client is handled within this function.
+pub async fn process(
+    server: Arc<Mutex<Server>>,
+    registry: Arc<Registry>,
+    world: Arc<WorldApi>,
+    stream: TcpStream,
+    mut cache: CacheSocket,
+) -> Result<(), Box<dyn Error>> {
+    let uid = cache.get_value::<UID>("uid").unwrap_or_else(|| {
+        println!("Error retrieving UID from redis, reassigning UID");
+        let new_uid = gen_uid();
+        if let Err(e) = cache.set_value("uid", new_uid) {
+            println!(
+                "{}\nUnable to set key/value pair in redis uid: {}",
+                e, new_uid
+            );
+        };
+        new_uid
+    });
+
+    let mut client = Client::new(uid, server.clone(), stream).await?;
+    client.state = ConnStates::AwaitingName;
+
+    display_welcome(&mut client).await?;
+    let mut game_loop = true;
+    while game_loop {
+        if client.state == ConnStates::Quit {
+            println!("Client is disconnecting");
+            game_loop = false;
+        }
+        if let Some(response) = get(&mut client).await {
+            let new_state = client
+                .state
+                .clone()
+                .execute(&mut client, registry.clone(), world.clone(), response)
+                .await?;
+            client.state = new_state;
+            let state = format!("({:?})", client.state);
+            send(&mut client, &state).await?;
+        } else {
+            println!("Client dropped connection. Removing...");
+            game_loop = false;
+        }
+    }
+
+    client_cleanup(uid, &server, cache).await;
+    Ok(())
+}

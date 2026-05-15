@@ -5,6 +5,7 @@ members = [
     "db",
     "benchmarks",
     "tester",
+    "examples/extension",
 ]
 
 [workspace.package]

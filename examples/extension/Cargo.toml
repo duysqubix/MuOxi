@@ -1,0 +1,18 @@
+[package]
+name = "muoxi-example-extension"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+muoxi = { path = "../../muoxi" }
+db = { path = "../../db" }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+[[bin]]
+name = "muoxi-example-extension"
+path = "src/main.rs"

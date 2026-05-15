@@ -6,6 +6,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[lib]
+name = "muoxi"
+path = "src/lib.rs"
+
 [dependencies]
 db = { path = "../db" }
 
