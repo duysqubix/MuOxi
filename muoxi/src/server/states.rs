@@ -80,6 +80,52 @@ impl ConnStates {
                     }
                 }
             }
+            ConnStates::AwaitingPassword => {
+                let Some(account_uid) = client.account_uid else {
+                    client.auth_buffer.clear();
+                    crate::send(client, "Session lost. Enter your account name:").await?;
+                    return Ok(ConnStates::AwaitingName);
+                };
+                let Some(name) = client.auth_buffer.pending_name.clone() else {
+                    client.auth_buffer.clear();
+                    client.account_uid = None;
+                    crate::send(client, "Session lost. Enter your account name:").await?;
+                    return Ok(ConnStates::AwaitingName);
+                };
+                let stored_hash = world.account_password_hash(account_uid).await;
+                let ok = match stored_hash {
+                    Some(h) => crate::auth::verify_password(&response, &h),
+                    None => false,
+                };
+                if !ok {
+                    client.auth_buffer.clear();
+                    client.account_uid = None;
+                    crate::send(client, "Bad password. Enter your account name:").await?;
+                    return Ok(ConnStates::AwaitingName);
+                }
+                client.auth_buffer.clear();
+                crate::send(client, &format!("Welcome, {}.", name)).await?;
+
+                let world_ref: &WorldApi = world.as_ref();
+                let session_uid = client.uid;
+                registry
+                    .hooks
+                    .emit(|h| async move {
+                        let mut ctx = crate::hooks::HookContext {
+                            world: world_ref,
+                            session_uid: Some(session_uid),
+                        };
+                        h.at_login(&mut ctx, account_uid).await
+                    })
+                    .await;
+
+                crate::send(
+                    client,
+                    "(press Enter for your character list, or type `new <name>` / `quit`)",
+                )
+                .await?;
+                Ok(ConnStates::MainMenu)
+            }
             ConnStates::Playing => {
                 if response.trim().eq_ignore_ascii_case("quit") {
                     return Ok(ConnStates::Quit);
