@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["ConnState",""],["ConnStateMessages",""]],"struct":[["AwaitingAcctName",""],["EnterGame",""],["MainMenu",""],["NewAcct",""],["NewAcctName",""],["Next",""]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["_IMPL_DESERIALIZE_FOR_Person",""],["_IMPL_SERIALIZE_FOR_Person",""]],"fn":[["benchmark_io_json_100_000",""]],"struct":[["Person",""]]});

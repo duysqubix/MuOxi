@@ -1,7 +1,6 @@
-target/*
+target/
 bin/lib*
 bin/muoxi*
-!target/doc
 
 .idea/
 
