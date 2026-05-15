@@ -17,7 +17,9 @@ pub mod engine;
 pub mod hooks;
 pub mod locks;
 pub mod prelude;
+pub mod registry;
 pub mod states;
+pub mod typeclass;
 pub mod world;
 
 use crate::prelude::LinesCodecResult;
