@@ -20,7 +20,6 @@ log = { workspace = true }
 pretty_env_logger = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-hotwatch = { workspace = true }
 async-trait = { workspace = true }
 
 [[bin]]
@@ -30,10 +29,6 @@ path = "src/engine/muoxi.rs"
 [[bin]]
 name = "muoxi_staging"
 path = "src/staging/staging_proxy.rs"
-
-[[bin]]
-name = "muoxi_watchdog"
-path = "src/watchdog/watchdog.rs"
 
 [[bin]]
 name = "muoxi_web"

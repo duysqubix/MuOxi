@@ -32,5 +32,4 @@ rand = "0.8"
 uuid = { version = "1", features = ["serde", "v4"] }
 async-trait = "0.1"
 chrono = "0.4"
-hotwatch = "0.5"
 bytes = "1"
