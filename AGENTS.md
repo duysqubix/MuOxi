@@ -16,7 +16,7 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 ├── db/            # shared library: SQLite/Postgres + Redis
 ├── benchmarks/    # custom non-Criterion benchmark harness
 ├── tester/        # sandbox/playground binary - NOT a test suite
-├── migrations/    # Diesel SQL migrations (accounts, characters, account_characters)
+├── migrations/    # Diesel SQL migrations (accounts + objects/attributes/tags/character_accounts)
 ├── config/        # runtime ini (muoxi.ini)
 ├── data/          # SQLite world.db lives here at runtime (gitignored)
 ├── json/          # import/export payloads only (NOT runtime canonical state)
@@ -39,7 +39,8 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 | TCP proxy / connection lifecycle | [`muoxi/src/server/`](file:///home/duys/.repos/MuOxi/muoxi/src/server/) |
 | Game logic (echo only today) | [`muoxi/src/server/engine.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/engine.rs) |
 | WebSocket bridge | [`muoxi/src/webserver/webserver.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/webserver/webserver.rs) |
-| Database tables / Diesel ORM | [`db/src/structures.rs`](file:///home/duys/.repos/MuOxi/db/src/structures.rs), [`db/src/schema.rs`](file:///home/duys/.repos/MuOxi/db/src/schema.rs) |
+| Account table / Diesel ORM | [`db/src/structures.rs`](file:///home/duys/.repos/MuOxi/db/src/structures.rs), [`db/src/schema.rs`](file:///home/duys/.repos/MuOxi/db/src/schema.rs) |
+| Generic in-world objects (rooms/items/mobs/characters) | [`db/src/objects/`](file:///home/duys/.repos/MuOxi/db/src/objects/) |
 | Backend selection + connection | [`db/src/conn.rs`](file:///home/duys/.repos/MuOxi/db/src/conn.rs) |
 | Redis cache wrapper + key naming | [`db/src/cache_structures/`](file:///home/duys/.repos/MuOxi/db/src/cache_structures/) |
 | Workspace dependency versions | [`Cargo.toml`](file:///home/duys/.repos/MuOxi/Cargo.toml) `[workspace.dependencies]` |
@@ -53,11 +54,15 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 | Symbol | Location | Role |
 |--------|----------|------|
 | `Conn` (type alias) | `db/src/conn.rs` | `SqliteConnection` (default) or `PgConnection` (with `db-postgres`). Reads `DATABASE_URL`; defaults to `data/world.db` for SQLite. |
-| `DatabaseHandler` | `db/src/lib.rs` | Holds one `Conn` + `accounts`, `characters`, `account_characters` handlers. Diesel 2.x ops require `&mut handle`. |
+| `DatabaseHandler` | `db/src/lib.rs` | Holds one `Conn` + `accounts`, `objects`, `attributes`, `tags`, `character_accounts` handlers. Diesel 2.x ops require `&mut handle`. |
 | `Cache` | `db/src/cache.rs` | Redis connection factory; reads `REDIS_SERVER`, default `redis://127.0.0.1` |
 | `CacheSocket` | `db/src/cache_structures/socket.rs` | Per-client Redis-backed socket state |
 | `Cachable` trait | `db/src/cache_structures/mod.rs` | Redis serialize via `Type:UID:field` keys |
-| `Account`, `Character` | `db/src/structures.rs` | Diesel ORM records; `#[diesel(table_name = ...)]` attributes |
+| `Account` | `db/src/structures.rs` | Login identity Diesel record |
+| `Object`, `ObjectRepo` | `db/src/objects/object.rs` | Generic in-world entity (`type_key` discriminates rooms/items/characters/...). Repo wraps Diesel CRUD. |
+| `ObjectAttribute`, `AttributeRepo` | `db/src/objects/attribute.rs` | Per-object key→JSON-text bag. Values are `serde_json::Value` at the Rust API boundary. |
+| `ObjectTag`, `TagRepo` | `db/src/objects/tag.rs` | Per-object (key, category) labels; idempotent add, cross-object lookup. |
+| `CharacterAccount`, `CharacterAccountRepo` | `db/src/objects/character_account.rs` | Link table: character object → owning account, with ordinal. |
 | `Server`, `Client`, `Comms` | `muoxi/src/server/comms.rs` | Connection state shared via `Arc<Mutex<Server>>` |
 | `ConnStates` | `muoxi/src/server/states.rs` | Login state machine (only `AwaitingName` implemented) |
 | `Command` trait + `cmdset![]` macro | `muoxi/src/server/prelude.rs` | Per-state command dispatch |
@@ -83,6 +88,8 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 - **DO NOT use `tester/src/main.rs` as a code reference.** It is a deliberately small Redis round-trip.
 - **DO NOT change `db/src/schema.rs` by hand.** Regenerate via `diesel migration run` (output target set in `diesel.toml`).
 - **DO NOT bring back JSON-canonical / watchdog.** Database is the single source of truth. `json/` is import/export only.
+- **DO NOT add a separate `characters` table.** Characters are objects with `type_key = "character"`; the account link lives in `character_accounts`.
+- **DO NOT bypass the repos.** Engine code calls `db.objects.create(...)`, never `diesel::insert_into(objects::table)` directly.
 - **DO NOT switch off `rust-toolchain.toml`.** Local nightly may regress with bleeding edge crate features; pinning to stable is the contract.
 
 ## COMMANDS
@@ -123,5 +130,5 @@ The first run creates `data/world.db` (SQLite). With `db-postgres`, set `DATABAS
 - `benchmarks/db_100_000.json` fixture is referenced but NOT committed - benchmark crate won't run out-of-the-box.
 - Removed: `db/src/clients.rs`, `muoxi/src/staging/copyover.rs`, `muoxi/src/watchdog/`, `muoxi/src/engine/`, `muoxi/src/staging/` (merged into `muoxi/src/server/`), `Dockerfile.postgres`, `init-muoxi-db.sql`, `.postgres-setup`.
 - SQLite WAL mode + foreign keys are enabled automatically at connection time (see `db::conn::configure`).
-- Account.characters BIGINT[] (PG-only) was replaced by `account_characters(account_uid, character_uid, ordinal)` join table.
+- Account.characters BIGINT[] (PG-only) was replaced first by `account_characters` (Plan 1) and then by `character_accounts` (Plan 3, linking object UIDs since characters are now Objects).
 - Schema migrations apply identically to SQLite and Postgres backends.
