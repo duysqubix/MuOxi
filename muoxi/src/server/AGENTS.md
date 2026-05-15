@@ -45,17 +45,46 @@ simplest topology that works.
 8. When `state == ConnStates::Playing`, input is forwarded to `cmds::dispatch` which resolves via Registry, runs the lock check, and invokes the matching `Command`.
 9. On disconnect or `Quit`, `client_cleanup()` removes the client from `Server.clients` and clears Redis keys.
 
-## STATE MACHINE STATUS (CRITICAL)
+## STATE MACHINE
 
-Plan 6 will complete this. As of post-Plan-4:
+All 8 `ConnStates` have real logic. Flow:
 
-- `AwaitingName` accepts a non-empty name and transitions to `AwaitingPassword` OR transitions to `AwaitingNewName` on `"new"`. PLACEHOLDER — does not look up the account in the DB.
-- `Playing` routes input through `cmds::dispatch` (real registry-based command resolution).
-- All other arms fall through to `Quit` (disconnect on first input).
+```
+       ┌──────────────┐
+       │ AwaitingName │◄─────────────── (bad password / no account / lost session)
+       └───┬──────────┘
+   new │   │ existing-account
+       ▼   ▼
+┌──────────┐  ┌────────────┐
+│AwNewName │  │AwPassword  │── bad ──► AwaitingName
+└────┬─────┘  └─────┬──────┘
+     ▼              │ argon2 ok + at_login fires
+┌──────────┐        ▼
+│AwNewPass │  ┌──────────┐
+└────┬─────┘  │ MainMenu │
+     ▼        └────┬─────┘
+┌──────────┐       │ select N / new <name>
+│ConfNewPwd│ ───►  ▼
+└────┬─────┘  ┌─────────┐
+     │        │ Playing │── quit ──► Quit ── at_disconnect fires
+     │        └────┬────┘
+     │             │
+     └─────────────► (commands run via cmds::dispatch + Registry)
+```
 
-For development with a working `Playing` flow, set `DEV_AUTOLOGIN=1` (see
-`main.rs`) — this skips the auth state machine and lands the connection
-straight in `Playing` with a seeded dev character.
+* `Client.auth_buffer` carries `pending_name` + `first_password_attempt` across transitions. Cleared on success, failure, or session loss.
+* `Client.account_uid` is set on successful auth OR new-account creation.
+* `Client.character_uid` is set on character select / character create.
+* `at_login` fires on `AwaitingPassword` success (non-cancelable, fan-out to all hooks).
+* `at_disconnect` fires from `client_cleanup` when `client.account_uid` is `Some` — never on welcome-screen abandons.
+
+Validators (in [`auth.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/auth.rs)):
+* `is_valid_name`: 3-32 chars, `[A-Za-z][A-Za-z0-9_]*`
+* `is_valid_password`: 6+ chars, no whitespace, no null bytes
+
+Password hashing: argon2id, fresh `OsRng` salt per password, PHC-formatted hash stored in `accounts.password_hash`. Verification is constant-time.
+
+For development with a fast-path Playing flow (skipping the full new-account creation each connect), set `DEV_AUTOLOGIN=1` (see `main.rs`) — this creates a throwaway `Dev` character placed in the seeded room and jumps straight into `ConnStates::Playing`.
 
 ## EXTENSION SURFACE
 

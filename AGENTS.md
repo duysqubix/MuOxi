@@ -64,7 +64,8 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 | `ObjectTag`, `TagRepo` | `db/src/objects/tag.rs` | Per-object (key, category) labels; idempotent add, cross-object lookup. |
 | `CharacterAccount`, `CharacterAccountRepo` | `db/src/objects/character_account.rs` | Link table: character object → owning account, with ordinal. |
 | `Server`, `Client`, `Comms` | `muoxi/src/server/comms.rs` | Connection state shared via `Arc<Mutex<Server>>` |
-| `ConnStates` | `muoxi/src/server/states.rs` | Login state machine (only `AwaitingName` + `Playing` implemented; Plan 6 finishes the rest) |
+| `ConnStates` | `muoxi/src/server/states.rs` | Complete 8-state login + character-select machine. AwaitingName → AwaitingPassword/AwaitingNewName → … → MainMenu → Playing → Quit. |
+| `auth::{hash_password, verify_password, AuthBuffer}` | `muoxi/src/server/auth.rs` | argon2id hashing + per-session credential scratch space + name/password validators. |
 | `Registry` | `muoxi/src/server/registry.rs` | Central index of TypeClasses, Commands, Hooks. Threaded into every session via `Arc<Registry>`. |
 | `WorldApi` | `muoxi/src/server/world.rs` | DB facade for command handlers. Wraps `DatabaseHandler` in `Arc<Mutex<>>`. |
 | `TypeClass` trait + 5 built-ins | `muoxi/src/server/typeclass.rs` | In-world type definitions (Character, Room, Item, Exit, Mob). |
