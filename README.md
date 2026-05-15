@@ -58,137 +58,102 @@ The bare minimum TODO features that must be implemented before I would consider 
 
 ## Getting Started
 
-In order for MuOxi applications to work as expected, it is necessary to have a fully working PostgreSQL and Redis server running.
-You can change it in the code to what user postgres should be using, but the default is `muoxi` with password `muoxi`. Redis server
-should be running as well, if you have successfully installed in on your OS, you can start it from the terminal using `redis-server`.
-In the future I will add scripts that will do this for you, upon initiliazing MuOxi. For now, you must unfortuantly do everything by hand.
-Hopefully the following steps will guide you through the process to set up your environment for working on the code base.
+MuOxi uses SQLite by default — no external database service required. The default
+build needs only a Rust toolchain. The `rust-toolchain.toml` file pins the
+project to the matching stable channel.
 
-
-The following does assume you are working on Linux based OS. If you are using Windows >=10, use WSL as a linux sub and for everything else: Cygwin. However, I haven't
-tested this on a pure Windows environment..
-
-### Install some misc things, that have prevented me from compiling all the necessary Rust libraries.
-
-1. `sudo apt update && upgrade`
-2. `sudo apt install libpq-dev`
-3. Attempt `cargo build`, everything should build fine now..
-
-### Set Up Redis Server
-
-First you must install redis:
-
-1.  `sudo apt install redis-server -y`
-2.  `sudo service redis-server start` # enable on startup
-3.  To enable to make sure it is running you can manually start it with `redis-server` 
-
-To check if redis has installed and is running successfully run: `redis-cli` in the cli you should be greeted with `<127.0.0.1:6379>
-
-
-### Set Up Postgres SQL for the storage
-
-1. sudo apt install postgresql
-2. sudo service postgresql start
-3. sudo su - postgres
-4. createuser --superuser muoxi
-5. psql
-6. \password muoxi (muoxi for password)
-7. \q (to exit)
-8. createdb muoxi
-9. exit and now everything should be set up
-
-### Install Diesel Cli for migrations and database management
-
-Diesel is the Rust go-to solution for abstraction over database manipulation. It allows Rust code to be natively wrapped around the drivers for different SQL-based databases. This is equivalent to something like Django or Twistd for the python lovers.
-
-1. cargo install diesel_cli --no-default-features --features postgres
-2. diesel migration run
-
-That should be the end of basic setup - you can test the connection by running `cargo run --bin muoxi\_staging` and pointing any telnet client to: `127.0.0.1:8000`. You should be greeted by the MuOxi logo.
-Have fun :)
-
-### Docker Environment, Alternative
-If you happen to use Docker for your projects, MuOxi has the necessary configuration to start hacking right away. Just type:
+### Quick start
 
 ```bash
-$ docker-compose up server
+git clone https://github.com/duysqubix/MuOxi.git
+cd MuOxi
+cargo run --bin muoxi_staging        # binds 127.0.0.1:8000 (telnet)
+# in another terminal:
+cargo run --bin muoxi_engine         # binds 127.0.0.1:4567 (game logic, echo for now)
+cargo run --bin muoxi_web            # binds 127.0.0.1:8080 (websocket)
 ```
 
-After a few minutes, you will have postgres, redis and MuOxi itself running. Happy Hacking!
+The first run creates `data/world.db`. Override the path with `DATABASE_URL`.
+Migrations under `migrations/` are applied with the `diesel` CLI (optional;
+for local hacking the in-memory tests run without it). Connect with any telnet
+client:
+
+```bash
+telnet 127.0.0.1 8000
+```
+
+### Optional: Postgres backend
+
+For larger deployments, opt into the Postgres backend at compile time:
+
+```bash
+sudo apt install libpq-dev                    # or your platform's libpq package
+cargo build --no-default-features --features db-postgres
+DATABASE_URL=postgres://muoxi:muoxi@localhost/muoxi cargo run --bin muoxi_staging
+```
+
+You'll need to provision the Postgres database yourself (`createdb muoxi`,
+`createuser muoxi`, etc.). The same migrations under `migrations/` apply to both
+backends.
+
+### Optional: Redis (transient session cache)
+
+MuOxi caches per-connection socket state in Redis. The server still boots
+without Redis, but you'll see cache errors in the log:
+
+```bash
+redis-server                                  # default port 6379
+REDIS_SERVER=redis://127.0.0.1 cargo run --bin muoxi_staging
+```
+
+### Docker
+
+```bash
+docker compose up server
+```
 
 ## Quick Start Guide
 
-The project contains multiple bins that can be evoked from the command line:
+The project contains the following bins:
+
+* **cargo run --bin muoxi_staging**
+    * starts the main Proxy Staging server where all clients will *live*. Direct telnet clients connect via port *8000*.
+
+* **cargo run --bin muoxi_engine**
+    * Starts the game engine on `127.0.0.1:4567` (override `GAME_ADDR`). Currently an echo server while the engine design settles.
 
 * **cargo run --bin muoxi_web**
     * Starts the WebSocket bridge listening on `ws://127.0.0.1:8080` (override `WEB_ADDR`).
       Per-WS-client, it opens a fresh outbound TCP connection to the staging proxy at
       `127.0.0.1:8000` (override `PROXY_ADDR`). Implemented with `tokio-tungstenite`.
 
-* **cargo run --bin muoxi_staging**
-    * starts the main Proxy Staging server where all clients will *live*, this area is where clients will communicate to the game engine. Direct telnet clients can connect this is server via port *8000*
-
-* **cargo run --bin muoxi_watchdog**
-  * starts the external process that monitors changes to configuration json files. Once a change has been detected it triggers an update protocol to update PostgreSQL via Diesel.
-
-* **cargo run --bin muoxi_engine**
-    * Starts the main game engine running in it's own seperate process. The whole game is contained
-    within a TCP listening server that exchanges information back and forth between to the Proxy Server. *Right now it is just an echo server*
-
-
-
 ## Database Design Architecture
 
-The database design is seperated into four different layers, with different levels of abstraction.
-MuOxi utilizes a [PostgreSQL][postgresql] backend for its storage needs and [Redis][redis] for its caching and fast retrieval needs.
- A unique design approach has been taken that allows information 
-to be kept safe from database corruption, brownouts, or blackouts. The ideology is
-as follows:
+The database design has two layers:
+
+1. **Canonical store** — SQLite (default) or Postgres (opt-in via the `db-postgres` Cargo feature), accessed via [Diesel][diesel].
+2. **Transient cache** — [Redis][redis] holds per-session ephemeral state (socket address, UID, throttle counters). Sessions can survive Redis going down; persistent state is never written there.
 
 ```
- Layer 1: JSON Files <--------
-              |              |
-             \ /             |
- Layer 2:  Postgres ------   |
-                         |   |
-                         |   |
------------------------  |   |
-|Layer 3: Cache/Memory|  |   |
------------------------  |   |
-        |    / \         |   |
-       \ /    |         \ /  |
- Layer 4: MuOxi Applications--
+ ┌──────────────┐
+ │   Clients    │  telnet / websocket / MCCP
+ └──────┬───────┘
+        ▼
+ ┌──────────────┐
+ │ muoxi_staging│  proxy + login state machine
+ └──────┬───────┘
+        ├──────────────► Redis  (per-session cache)
+        ▼
+ ┌──────────────┐
+ │ muoxi_engine │  game logic
+ └──────┬───────┘
+        ▼
+ ┌──────────────┐
+ │   Diesel ORM │  → SQLite (default) | Postgres (opt-in)
+ └──────────────┘
 ```
 
-#### Layer 1: Flat Files
-
-The entire database actually lives in JSON files from accounts, mobs, players, equipment, spells, skills, etc... 
-JSON files where chosen because of the *hyper-fast* libraries available for manipulating json files in Rust and its friendly human readability.
-A seperate process called the *watchdog* monitors custom defined `.json` files in the 
-`/config` directory for any changes to contents themselves. Upon a detected change it triggers an upload piece of logic
-that *updates* [postgreSQL][postgresql] database using [Diesel][diesel], which leads us to layer 2 of the design.
-
-
-#### Layer 2: PostgreSQL
-
-This is where all persistent data will live throughout, and past, the life-span of MuOxi. Powered by an ORM management system, [Diesel][diesel] with
-[postgreSQL][postgresql] backend. The database should always be a reflection of what is stored in the `.json` files. MuOxi applications 
-queries straight from the database. 
-
-#### Layer 3: Cache/In-Memory 
-
-This is a helper layer that is dominated by [Redis][redis], for quick retrieval of information and adding ad-hoc non-persistent data such as combat,
-triggers, and other various information that would not be detrimental if a shutdown occured for whatever reason. This layer is meant to be used on a
-*use-if-needed* basis.
-
-#### Layer 4: MuOxi Applications
-
-This is the layer where MuOxi will actually use all persistent and non-persistent data to drive the actual engine itself. Whether it be
-handling different states of connected clients, combat data, player information, and any-and-all other memory will be read from the cached database
-to keep the engine running. Upon an action within MuOxi that would causes a change to the Database, MuOxi will actually write to the flat-files
-instead of directly to PostgreSQL. This was a throughouly thought out process to keep PostgreSQL a read-only database, from the perspective of the engine itself.
-When a change occurs and MuOxi writes to the flat files we began again at layer 1 of the design. __It is the responsibility of the WatchDog to monitor changes to
-the json files and update PostgresSQL. PostgresSQL and the JSON files should always be a reflection of each other.__
+JSON files used to be canonical in the original design; that has been removed in favor of the database being the single source of truth. JSON now means "import/export payload" only — see `json/README.md`.
 
 ## Core Design Architecture
 
