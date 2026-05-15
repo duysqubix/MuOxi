@@ -22,15 +22,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     useradd -r -M -d ${MUOXI_INSTALL_DIR} muoxi
 
-COPY --from=builder ${MUOXI_INSTALL_DIR}/target/release/muoxi_staging /usr/local/bin/muoxi_staging
-COPY --from=builder ${MUOXI_INSTALL_DIR}/target/release/muoxi_engine /usr/local/bin/muoxi_engine
+COPY --from=builder ${MUOXI_INSTALL_DIR}/target/release/muoxi_server /usr/local/bin/muoxi_server
 COPY --from=builder ${MUOXI_INSTALL_DIR}/target/release/muoxi_web /usr/local/bin/muoxi_web
 COPY --from=builder ${MUOXI_INSTALL_DIR}/migrations ${MUOXI_INSTALL_DIR}/migrations
 COPY --from=builder ${MUOXI_INSTALL_DIR}/resources ${MUOXI_INSTALL_DIR}/resources
 
+# chown must precede USER so named-volume permissions propagate on first mount.
+RUN mkdir -p ${MUOXI_INSTALL_DIR}/data && chown -R muoxi:muoxi ${MUOXI_INSTALL_DIR}
+
 USER muoxi
 EXPOSE 8000 8080
-CMD ["muoxi_staging"]
+CMD ["muoxi_server"]
 
 ARG SOURCE_BRANCH="master"
 ARG SOURCE_COMMIT="000000"
