@@ -27,17 +27,20 @@ async runtime and type system for the throughput and safety they bring.
                               └────────────┘  └────────────┘
 ```
 
-## Status — actively in revival (May 2026)
+## Status — bare-bones MUD shipped (May 2026)
 
 This project went dormant for several years. As of May 2026 it's back in
-active development and being shaped into a v0.1 framework release.
+active development and a runnable bare-bones MUD now ships off `master`.
 
 **What works today:**
 
-- TCP/telnet server on `127.0.0.1:8000` — connects, serves welcome banner,
-  runs a per-client connection-state machine.
-- WebSocket bridge with a built-in in-browser test client at
-  `http://localhost:8080` (vanilla JS, no build step).
+- TCP/telnet server on `127.0.0.1:8000` and WebSocket bridge on
+  `127.0.0.1:8080` with a built-in in-browser test client (vanilla JS, no
+  build step).
+- **Full account + character flow**: argon2id password hashing, persistent
+  accounts, multiple characters per account, character list/select/create
+  via a `MainMenu` state. Reconnect with credentials and your character
+  comes back.
 - Generic object/attribute/tag persistence layer (Evennia-style) backed by
   SQLite (default) or Postgres (opt-in). Embedded migrations run automatically
   at server startup — no `diesel migration run` required.
@@ -45,28 +48,25 @@ active development and being shaped into a v0.1 framework release.
   (Character, Room, Item, Exit, Mob) and four built-in commands (`look`,
   `say`, `quit`, `who`). Downstream MUDs register their own via
   `Registry::register_*`.
-- `DEV_AUTOLOGIN=1` mode: skips the placeholder auth and lands new
-  connections in a seeded starter room as a throwaway "Dev" character. Real
-  end-to-end demo: connect, `look`, `say`, `who`, `quit`.
-- Redis-backed transient session cache.
+- Lifecycle hooks: `at_login` fires on successful auth; `at_disconnect`
+  fires on logged-in session end.
+- `DEV_AUTOLOGIN=1` mode: skips the auth flow and lands new connections
+  in the seeded starter room as a throwaway `Dev` character. Useful for
+  framework development without typing credentials every time.
+- Redis-backed transient session cache (session UID, addr).
 - Single-binary Docker stack (`docker compose up`).
 - Toolchain pinned to stable Rust 1.85; default build needs **zero system
   packages** (SQLite is bundled).
 
-**What's still in progress** — see [Roadmap](#roadmap).
+**What's still on the roadmap** — see [Roadmap](#roadmap).
 
 ## Quick start
 
 ```bash
 git clone https://github.com/duysqubix/MuOxi.git
 cd MuOxi
-DEV_AUTOLOGIN=1 docker compose up
+docker compose up
 ```
-
-`DEV_AUTOLOGIN=1` skips the still-incomplete auth state machine and drops new
-connections straight into the seeded starter room as a throwaway "Dev"
-character. Without it, the welcome banner shows but you'll be disconnected on
-the first password prompt (auth lands later in the roadmap).
 
 Then connect any of three ways:
 
@@ -76,24 +76,59 @@ Then connect any of three ways:
 | Telnet / tt++ | `127.0.0.1:8000`              | `telnet 127.0.0.1 8000` or `tt++` `#session`  |
 | WS client     | `ws://localhost:8080`         | `wscat -c ws://localhost:8080` and any sender |
 
-Once connected, try:
+First-time session:
 
 ```
-look                     describes the current room + visible contents
-say hello world          speak (echo only for now; broadcast lands later)
-who                      list online players (stub for now)
-quit                     disconnect
+Enter your account name to log in, or type `new` to create one:
+> new
+Choose an account name (3-32 chars, alphanumeric, start with letter):
+> alice
+Password (6+ chars, no whitespace):
+> hunter2
+Confirm password:
+> hunter2
+Account alice created.
+Type `new <name>` to create your first character, or `quit`.
+
+> new Sir_Reginald
+Created Sir_Reginald. Entering world.
+
+> look
+[Limbo]
+You stand in a featureless void. The air feels still and timeless.
+A polished stone sits at your feet, and a tired-looking goblin slumps nearby.
+Here you see:
+  a polished stone
+  a tired-looking goblin
+
+> say Hail!
+You say, "Hail!"
+
+> quit
 ```
+
+Reconnect later as `alice` with password `hunter2` and your character is
+still there.
 
 If host ports 8000 / 8080 are taken:
 
 ```bash
-MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 DEV_AUTOLOGIN=1 docker compose up
+MUOXI_SERVER_PORT=18000 MUOXI_WEB_PORT=18080 docker compose up
 ```
 
 The first run creates `data/world.db` (SQLite) inside a named docker volume
 and applies migrations automatically. A starting room ("Limbo") plus a sample
 item and mob are seeded on first boot.
+
+### Dev shortcut
+
+If you're working on the framework and don't want to type credentials each
+restart, `DEV_AUTOLOGIN=1` skips the auth flow and drops new connections
+straight into `Playing` as a throwaway `Dev` character:
+
+```bash
+DEV_AUTOLOGIN=1 docker compose up
+```
 
 ## Building from source
 
@@ -189,8 +224,8 @@ The path to v0.1 is moving along these axes:
 | Topology collapse → unified `muoxi_server`        | ✅ done        |
 | Generic Object/Attribute/Tag persistence model    | ✅ done        |
 | Command + Hook + TypeClass registry               | ✅ done        |
+| Full auth state machine (argon2 + login flow)     | ✅ done        |
 | Persistent scheduler / scripts                    | ⏳ next        |
-| Full auth state machine (argon2 + login flow)     | ⏳             |
 
 ## For framework users
 
