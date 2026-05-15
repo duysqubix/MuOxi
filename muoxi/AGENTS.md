@@ -1,18 +1,21 @@
 # muoxi crate
 
-Multi-binary application crate. Edition 2024. Tokio 1.x async runtime. Depends on `db` (path crate) for persistence + caching.
+Application crate with 2 binaries. Edition 2024. Tokio 1.x async runtime. Depends on `db` (path crate) for persistence + caching.
 
 ## STRUCTURE
 
 ```
 muoxi/
-├── Cargo.toml          # 4 [[bin]] entries with custom paths; reads workspace deps
+├── Cargo.toml          # 2 [[bin]] entries with custom paths; reads workspace deps
 └── src/
-    ├── engine/
-    │   └── muoxi.rs    # muoxi_engine - echo TCP server (Tokio 1.x AsyncReadExt)
-    ├── staging/        # muoxi_staging - main proxy/login (see staging/AGENTS.md)
-    ├── watchdog/
-    │   └── watchdog.rs # muoxi_watchdog - hotwatch 0.5 JSON → Postgres syncer
+    ├── server/
+    │   ├── main.rs     # muoxi_server bin entrypoint (login + game in one runtime)
+    │   ├── cmds.rs     # do_cmd dispatcher + proxy command set
+    │   ├── comms.rs    # Server, Client, Comms, Message
+    │   ├── engine.rs   # game-logic entry: handle_input (placeholder echo for v0.1)
+    │   ├── prelude.rs  # Command trait + CmdSet + cmdset! macro
+    │   ├── states.rs   # ConnStates state machine
+    │   └── AGENTS.md   # server subsystem documentation
     └── webserver/
         └── webserver.rs # muoxi_web - tokio-tungstenite WS-to-TCP bridge
 ```
@@ -21,9 +24,7 @@ muoxi/
 
 | Binary | Source | Listens | Status |
 |--------|--------|---------|--------|
-| `muoxi_engine` | `src/engine/muoxi.rs` | `127.0.0.1:4567` (override `GAME_ADDR`) | Echo only - placeholder for real game logic. Verified end-to-end. |
-| `muoxi_staging` | `src/staging/staging_proxy.rs` | `127.0.0.1:8000` (override `PROXY_ADDR`) | Working proxy. Login state machine still incomplete. |
-| `muoxi_watchdog` | `src/watchdog/watchdog.rs` | n/a (file watcher) | Watches `json/accounts.json` + `json/characters.json` |
+| `muoxi_server` | `src/server/main.rs` | `127.0.0.1:8000` (override `PROXY_ADDR`) | Combined login + game logic. State machine in `Playing` echoes via `engine::handle_input`. Full auth flow lands in Plan 6. |
 | `muoxi_web` | `src/webserver/webserver.rs` | `127.0.0.1:8080` (override `WEB_ADDR`); connects to `PROXY_ADDR` | Working WS-to-TCP bridge. Per-client TCP outbound. |
 
 ## KEY DEPENDENCIES
@@ -33,33 +34,31 @@ muoxi/
 - `tokio-stream = "0.1"` for `StreamExt::next` on `Framed`.
 - `futures-util = "0.3"` for `SinkExt::send` on `Framed`.
 - `tokio-tungstenite = "0.24"` - sole websocket implementation; replaced unmaintained `ws` 0.9.
-- `hotwatch = "0.5"` - filesystem watcher (notify-based; Event API uses `EventKind::Modify(_)`).
-- `async-trait = "0.1"` - required by `Command` trait in `staging/prelude.rs`.
-- REMOVED: `mio`, `mio-extras`, `ws`, `bytes`, `lazy_static` (the watchdog now uses `std::sync::OnceLock`).
+- `async-trait = "0.1"` - required by `Command` trait in `server/prelude.rs`.
+- REMOVED in v0.1: `mio`, `mio-extras`, `ws`, `bytes`, `lazy_static`, `hotwatch`.
 
 ## CONVENTIONS
 
-- `#![deny(missing_docs)]` on `staging_proxy.rs` and `watchdog.rs`. Other modules use `#![allow(missing_docs)]` (`states.rs`, `cmds.rs`).
-- Every binary uses `#[tokio::main]` directly (the `ws` crate's sync `listen()` is gone, so `webserver.rs` is now single-runtime like the others).
+- `#![deny(missing_docs)]` on `server/main.rs`. Other modules use `#![allow(missing_docs)]` (`states.rs`, `cmds.rs`).
+- Every binary uses `#[tokio::main]` directly.
 - Logging: `pretty_env_logger::init()` + ad-hoc `println!`.
+- Binary paths under nested dirs use the `path = "src/<bin>/main.rs"` convention so children are looked up as siblings in the same dir.
 
 ## ANTI-PATTERNS
 
+- DO NOT add a `muoxi_engine` or `muoxi_staging` binary back. v0.1 is one process.
 - DO NOT mix `tokio::prelude` imports - it doesn't exist in Tokio 1.x. Use individual `AsyncReadExt`/`AsyncWriteExt` imports.
-- DO NOT change a binary's `[[bin]] path` without also moving its `mod.rs` declarations - `staging_proxy.rs` declares `pub mod cmds; pub mod comms; ...` so the binary path determines module resolution.
-- DO NOT call DB code from `engine/muoxi.rs` yet - it is intentionally a pure echo server until the engine design is finalized. The binary is also the ONLY way to verify changes without `libpq` installed.
+- DO NOT change a binary's `[[bin]] path` without also moving its sibling modules - the binary entry file IS the crate root for that target, so child modules must be siblings of it.
 - DO NOT put `client.lines.send(msg.into()).await` in code - in tokio_util 0.7 `LinesCodec`'s `Encoder<T: AsRef<str>>` impl is generic, so `.into()` is ambiguous. Use `msg.to_string()` or pass an owned `String` directly.
 
 ## RUN
 
 ```bash
-cargo run --bin muoxi_staging                  # then: telnet 127.0.0.1 8000
-cargo run --bin muoxi_watchdog                 # in another terminal (needs libpq + Postgres)
-cargo run --bin muoxi_engine                   # in another terminal (port 4567)
+cargo run --bin muoxi_server                   # then: telnet 127.0.0.1 8000
 cargo run --bin muoxi_web                      # ws://127.0.0.1:8080 → tcp 127.0.0.1:8000
 
-WEB_ADDR=127.0.0.1:8888 PROXY_ADDR=127.0.0.1:4567 cargo run --bin muoxi_web
-                                               # alt: forward directly to engine for testing
+WEB_ADDR=127.0.0.1:8888 PROXY_ADDR=127.0.0.1:8000 cargo run --bin muoxi_web
+                                               # alt: rebind web port
 ```
 
-`muoxi_staging` is designed to PROXY into `muoxi_engine` once a client transitions to `ConnStates::Playing`. The state machine is currently incomplete - see `src/staging/AGENTS.md`.
+The state machine is incomplete; Plan 6 completes it. See `src/server/AGENTS.md`.

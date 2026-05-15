@@ -12,7 +12,7 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 
 ```
 .
-├── muoxi/         # 3-binary app crate (engine, staging, web)
+├── muoxi/         # 2-binary app crate (server, web)
 ├── db/            # shared library: SQLite/Postgres + Redis
 ├── benchmarks/    # custom non-Criterion benchmark harness
 ├── tester/        # sandbox/playground binary - NOT a test suite
@@ -36,8 +36,8 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 
 | Task | Location |
 |------|----------|
-| TCP proxy / connection lifecycle | [`muoxi/src/staging/`](file:///home/duys/.repos/MuOxi/muoxi/src/staging/) |
-| Game logic (echo only today) | [`muoxi/src/engine/muoxi.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/engine/muoxi.rs) |
+| TCP proxy / connection lifecycle | [`muoxi/src/server/`](file:///home/duys/.repos/MuOxi/muoxi/src/server/) |
+| Game logic (echo only today) | [`muoxi/src/server/engine.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/server/engine.rs) |
 | WebSocket bridge | [`muoxi/src/webserver/webserver.rs`](file:///home/duys/.repos/MuOxi/muoxi/src/webserver/webserver.rs) |
 | Database tables / Diesel ORM | [`db/src/structures.rs`](file:///home/duys/.repos/MuOxi/db/src/structures.rs), [`db/src/schema.rs`](file:///home/duys/.repos/MuOxi/db/src/schema.rs) |
 | Backend selection + connection | [`db/src/conn.rs`](file:///home/duys/.repos/MuOxi/db/src/conn.rs) |
@@ -58,9 +58,9 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 | `CacheSocket` | `db/src/cache_structures/socket.rs` | Per-client Redis-backed socket state |
 | `Cachable` trait | `db/src/cache_structures/mod.rs` | Redis serialize via `Type:UID:field` keys |
 | `Account`, `Character` | `db/src/structures.rs` | Diesel ORM records; `#[diesel(table_name = ...)]` attributes |
-| `Server`, `Client`, `Comms` | `muoxi/src/staging/comms.rs` | Connection state shared via `Arc<Mutex<Server>>` |
-| `ConnStates` | `muoxi/src/staging/states.rs` | Login state machine (only `AwaitingName` implemented) |
-| `Command` trait + `cmdset![]` macro | `muoxi/src/staging/prelude.rs` | Per-state command dispatch |
+| `Server`, `Client`, `Comms` | `muoxi/src/server/comms.rs` | Connection state shared via `Arc<Mutex<Server>>` |
+| `ConnStates` | `muoxi/src/server/states.rs` | Login state machine (only `AwaitingName` implemented) |
+| `Command` trait + `cmdset![]` macro | `muoxi/src/server/prelude.rs` | Per-state command dispatch |
 | `gen_uid()` | `db/src/utils.rs` | i64 UID = 32-bit unix-timestamp `<<` 32 \| 32-bit random |
 
 ## CONVENTIONS
@@ -73,7 +73,7 @@ MUD/MU* online-text-game engine in Rust (edition 2024). Cargo workspace, 4 membe
 - DB UID type: `i64` (`db::utils::UID`). Schema enforces `BIGINT NOT NULL CHECK (uid > 0)`.
 - Diesel query connection arg is now `&mut Conn` (Diesel 2.x). All `DatabaseHandlerExt` methods take `conn: &mut Conn`.
 - The `db` library is consumed by every other crate via `path = "../db"`.
-- Multi-binary pattern: `muoxi` ships 3 bins via `[[bin]]` with custom paths into nested `src/<bin>/` dirs - NOT the standard `src/bin/`.
+- Multi-binary pattern: `muoxi` ships 2 bins (`muoxi_server`, `muoxi_web`) via `[[bin]]` with custom paths into nested `src/<bin>/` dirs - NOT the standard `src/bin/`.
 - Dependency versions are centralized in workspace root `[workspace.dependencies]`; each member crate just reads `{ workspace = true }`.
 - **Backend is SQLite by default**. Postgres requires `--no-default-features --features db-postgres` AND `libpq-dev` on the host.
 
@@ -94,8 +94,7 @@ cargo check --workspace               # link-free type check
 cargo clippy --workspace --no-deps    # lints; style warnings only
 cargo test -p db --features db-sqlite # SQLite in-memory integration tests
 
-cargo run --bin muoxi_engine          # 127.0.0.1:4567 echo TCP server
-cargo run --bin muoxi_staging         # 127.0.0.1:8000 staging proxy
+cargo run --bin muoxi_server          # 127.0.0.1:8000 unified server (login + game)
 cargo run --bin muoxi_web             # ws://127.0.0.1:8080 → tcp 127.0.0.1:8000 bridge
 cargo run --bin muoxi_sandbox         # tester crate (needs Redis running)
 cargo run --bin muoxi_benchmarks      # benchmark crate (needs fixture; see benchmarks/AGENTS.md)
@@ -111,19 +110,18 @@ The first run creates `data/world.db` (SQLite). With `db-postgres`, set `DATABAS
 |-----|---------|--------|
 | `DATABASE_URL` | `data/world.db` (SQLite) / `postgres://muoxi:muoxi@localhost/muoxi` (PG) | `db::conn::establish` |
 | `REDIS_SERVER` | `redis://127.0.0.1` | `Cache::new` |
-| `GAME_ADDR` | `127.0.0.1:4567` | `staging_proxy::main`, `engine::main` |
-| `PROXY_ADDR` | `127.0.0.1:8000` | `staging_proxy::main`, `webserver::main` (forwards WS → TCP at PROXY_ADDR) |
+| `PROXY_ADDR` | `127.0.0.1:8000` | `server::main`, `webserver::main` (forwards WS → TCP at PROXY_ADDR) |
 | `WEB_ADDR` | `127.0.0.1:8080` | `webserver::main` (WS bind addr) |
-| `RUST_LOG` | `info,warn,error,test` | set inside `staging_proxy::main` |
+| `RUST_LOG` | `info,warn,error,test` | set inside `server::main` |
 
 ## NOTES / GOTCHAS
 
 - **Default builds need zero system packages.** SQLite ships bundled via `libsqlite3-sys` with the `bundled` feature. Postgres backend requires `libpq-dev` ONLY when selecting `--features db-postgres`.
 - `muoxi_web` listens on `WEB_ADDR` (default `127.0.0.1:8080`) and forwards to `PROXY_ADDR` (default `127.0.0.1:8000`).
 - `muoxi_web` is WS-only (no HTML serving).
-- `staging_proxy.rs` reads `resources/welcome.txt` with a CWD-relative path - run binaries from repo root.
+- `server/main.rs` reads `resources/welcome.txt` with a CWD-relative path - run binaries from repo root.
 - `benchmarks/db_100_000.json` fixture is referenced but NOT committed - benchmark crate won't run out-of-the-box.
-- Removed: `db/src/clients.rs`, `muoxi/src/staging/copyover.rs`, `muoxi/src/watchdog/`, `Dockerfile.postgres`, `init-muoxi-db.sql`, `.postgres-setup`.
+- Removed: `db/src/clients.rs`, `muoxi/src/staging/copyover.rs`, `muoxi/src/watchdog/`, `muoxi/src/engine/`, `muoxi/src/staging/` (merged into `muoxi/src/server/`), `Dockerfile.postgres`, `init-muoxi-db.sql`, `.postgres-setup`.
 - SQLite WAL mode + foreign keys are enabled automatically at connection time (see `db::conn::configure`).
 - Account.characters BIGINT[] (PG-only) was replaced by `account_characters(account_uid, character_uid, ordinal)` join table.
 - Schema migrations apply identically to SQLite and Postgres backends.
