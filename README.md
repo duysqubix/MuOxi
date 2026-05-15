@@ -157,29 +157,23 @@ protocol enabling hot-reload) is on the v0.2 roadmap.
 
 ## Roadmap
 
-The path to v0.1 is broken into six axis-plans under
-[`docs/superpowers/plans/`](docs/superpowers/plans/):
+The path to v0.1 is moving along these axes:
 
-| Plan | Topic                                            | Status         |
-| ---- | ------------------------------------------------ | -------------- |
-| 1    | SQLite migration + drop JSON/watchdog            | ✅ done        |
-| 2    | Topology collapse → unified `muoxi_server`       | ✅ done        |
-| 3    | Generic Object/Attribute/Tag model               | ✅ done        |
-| 4    | Command + Hook + TypeClass registry              | ⏳ next        |
-| 5    | Persistent scheduler / scripts                   | ⏳             |
-| 6    | Full auth state machine (argon2 + login flow)    | ⏳             |
-
-Start with the
-[MASTER-PLAN](docs/superpowers/plans/2026-05-07-MASTER-PLAN.md) — it has a
-"resume point" header that any agent or human picking up the work can use to
-get oriented quickly.
+| Axis                                              | Status         |
+| ------------------------------------------------- | -------------- |
+| SQLite as default backend; drop JSON/watchdog     | ✅ done        |
+| Topology collapse → unified `muoxi_server`        | ✅ done        |
+| Generic Object/Attribute/Tag persistence model    | ✅ done        |
+| Command + Hook + TypeClass registry               | ⏳ next        |
+| Persistent scheduler / scripts                    | ⏳             |
+| Full auth state machine (argon2 + login flow)     | ⏳             |
 
 ## For framework users
 
 The end goal is a framework where you can:
 
 ```rust
-// (hypothetical post-Plan-4 API — not yet final)
+// (hypothetical future API — not yet final)
 use muoxi::prelude::*;
 
 #[muoxi::typeclass(key = "weapon")]
@@ -206,8 +200,9 @@ fn main() {
 }
 ```
 
-Plan 4 lands this surface. Until then, downstream code reaches into the lower
-layers (`muoxi/src/server/`, `db/src/objects/`) directly. See
+The registry/typeclass/hook layer (next on the roadmap) lands this surface.
+Until then, downstream code reaches into the lower layers
+(`muoxi/src/server/`, `db/src/objects/`) directly. See
 [`AGENTS.md`](AGENTS.md) for the current code map.
 
 ## Development

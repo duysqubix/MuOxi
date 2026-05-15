@@ -12,3 +12,4 @@ data/world.db-shm
 data/*.sqlite
 data/*.sqlite-wal
 data/*.sqlite-shm
+docs/superpowers/

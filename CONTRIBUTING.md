@@ -8,11 +8,13 @@ work.
 
 - **What this project is**: a Rust-based MUD/MU\* framework, Evennia-inspired.
   See the [README](README.md) for the elevator pitch and architecture.
-- **What state it's in**: v0.1 in progress. Six axis-plans under
-  [`docs/superpowers/plans/`](docs/superpowers/plans/) — Plans 1, 2, 3 are
-  done; Plan 4 is next.
-- **Where to start**: pick a plan that's not yet started (4, 5, or 6), or
-  scope a smaller task from the open issues.
+- **What state it's in**: v0.1 in progress. The persistence layer
+  (SQLite-backed objects/attributes/tags) is in. The unified
+  `muoxi_server` binary is in. The command/hook registry, scheduler, and
+  full auth state machine are next.
+- **Where to start**: open an issue describing what you'd like to tackle, or
+  pick a smaller task from the [Smaller starter tasks](#smaller-starter-tasks)
+  list below.
 
 ## Setup
 
@@ -76,24 +78,21 @@ a genuine inconsistency, raising it in a PR is welcome.
 
 ## Where to find work
 
-### Reading the plans
+The high-level roadmap is in the [README](README.md#roadmap). The big-ticket
+items right now are:
 
-The six v0.1 axis-plans live under
-[`docs/superpowers/plans/`](docs/superpowers/plans/). Each plan is broken into
-self-contained tasks with code blocks, verification commands, and per-task
-commit messages. They're written so an outside contributor (or AI agent) can
-execute them step-by-step.
+- **Command + Hook + TypeClass registry** — the developer-facing surface that
+  lets downstream code register custom in-world types, command sets, and
+  lifecycle hooks without forking the framework. Biggest user-facing piece.
+- **Persistent scheduler / scripts** — timed in-world events (a torch that
+  burns out after N ticks; a respawn after M minutes; a daily reset). Builds
+  on the object/attribute model that just landed.
+- **Full auth state machine** — argon2 password hashing, complete login /
+  signup / character-selection flow. The `AwaitingName` state is currently
+  the only one with real logic; the rest fall through to `Quit`.
 
-- **Plan 4** ([command-hook-registry](docs/superpowers/plans/2026-05-07-command-hook-registry.md))
-  — TypeClass / Hook / Registry. 14 tasks. The biggest user-facing milestone.
-- **Plan 5** ([scheduler](docs/superpowers/plans/2026-05-07-scheduler.md))
-  — persistent timed scripts. 9 tasks.
-- **Plan 6** ([auth-state-machine](docs/superpowers/plans/2026-05-07-auth-state-machine.md))
-  — complete login flow with argon2. 12 tasks.
-
-If you want to tackle a whole plan, the
-[MASTER-PLAN](docs/superpowers/plans/2026-05-07-MASTER-PLAN.md) has a "resume
-point" header that orients you on current state.
+Open an issue describing what you'd like to take on so we can avoid
+duplicate effort.
 
 ### Smaller starter tasks
 
