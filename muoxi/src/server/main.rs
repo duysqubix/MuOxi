@@ -16,6 +16,7 @@ pub mod comms;
 pub mod engine;
 pub mod prelude;
 pub mod states;
+pub mod world;
 
 use crate::prelude::LinesCodecResult;
 use crate::states::ConnStates;
