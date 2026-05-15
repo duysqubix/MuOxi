@@ -51,4 +51,8 @@ CWD MUST be repo root - all paths are relative.
 
 ## SYSTEM REQUIREMENT
 
-This binary transitively links `db` (Diesel/Postgres). Building requires `libpq-dev`. `cargo check` works without it.
+Default `db-sqlite` build: **none**. The benchmark binary transitively links
+`db`, which now defaults to SQLite via the bundled `libsqlite3-sys`.
+
+If you opt into Postgres (`cargo build --no-default-features --features db-postgres`),
+you'll need `libpq-dev` (or your platform's equivalent) installed on the host.
