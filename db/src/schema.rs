@@ -1,19 +1,36 @@
 diesel::table! {
     accounts (uid) {
-        uid -> Int8,
-        name -> Varchar,
-        password -> Varchar,
-        email -> Varchar,
-        characters -> Nullable<Array<Int8>>,
+        uid -> BigInt,
+        name -> Text,
+        password_hash -> Text,
+        email -> Text,
+        created_at -> BigInt,
     }
 }
 
 diesel::table! {
     characters (uid) {
-        uid -> Int8,
-        account -> Int8,
-        name -> Varchar,
+        uid -> BigInt,
+        account_uid -> BigInt,
+        name -> Text,
+        created_at -> BigInt,
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(accounts, characters,);
+diesel::table! {
+    account_characters (account_uid, character_uid) {
+        account_uid -> BigInt,
+        character_uid -> BigInt,
+        ordinal -> Integer,
+    }
+}
+
+diesel::joinable!(characters -> accounts (account_uid));
+diesel::joinable!(account_characters -> accounts (account_uid));
+diesel::joinable!(account_characters -> characters (character_uid));
+
+diesel::allow_tables_to_appear_in_same_query!(
+    accounts,
+    characters,
+    account_characters,
+);
