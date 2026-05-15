@@ -1,19 +1,24 @@
-//! Diesel-powered ORM management library for MuOxi (Postgres backend).
+//! Diesel-powered ORM management library for MuOxi.
+//!
+//! Default backend is SQLite via the `db-sqlite` feature; Postgres is opt-in
+//! via `db-postgres`. The active backend's connection type is exposed as
+//! [`Conn`].
 
 pub mod cache;
 pub mod cache_structures;
+pub mod conn;
 pub mod schema;
 pub mod structures;
 pub mod utils;
 
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use std::env;
+pub use conn::{Conn, configure, default_url, establish};
+
+pub use diesel;
 
 /// Main database handler.
 pub struct DatabaseHandler {
-    /// actual connection to the postgres database
-    pub handle: PgConnection,
+    /// actual connection to the database (SQLite or Postgres)
+    pub handle: Conn,
     /// handle to the Accounts table
     pub accounts: structures::account::AccountHandler,
     /// handle to the Characters table
@@ -21,17 +26,16 @@ pub struct DatabaseHandler {
 }
 
 impl DatabaseHandler {
-    /// Connect to the Postgres database.
+    /// Connect to the configured database and apply runtime PRAGMAs.
     ///
-    /// Reads `DATABASE_URL`, defaults to
-    /// `postgres://muoxi:muoxi@localhost/muoxi`. Panics if the
-    /// connection cannot be established.
+    /// Reads `DATABASE_URL`; falls back to [`default_url`] (`data/world.db`
+    /// for SQLite or `postgres://muoxi:muoxi@localhost/muoxi` for Postgres).
+    /// Panics if the connection cannot be established.
     pub fn connect() -> Self {
-        let url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://muoxi:muoxi@localhost/muoxi".to_string());
-        let conn = PgConnection::establish(&url).expect("Couldn't create handle to database");
+        let mut handle = establish();
+        configure(&mut handle).expect("configure() pragmas failed");
         Self {
-            handle: conn,
+            handle,
             accounts: structures::account::AccountHandler,
             characters: structures::character::CharacterHandler,
         }
