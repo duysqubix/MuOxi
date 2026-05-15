@@ -67,10 +67,9 @@ project to the matching stable channel.
 ```bash
 git clone https://github.com/duysqubix/MuOxi.git
 cd MuOxi
-cargo run --bin muoxi_staging        # binds 127.0.0.1:8000 (telnet)
-# in another terminal:
-cargo run --bin muoxi_engine         # binds 127.0.0.1:4567 (game logic, echo for now)
-cargo run --bin muoxi_web            # binds 127.0.0.1:8080 (websocket)
+cargo run --bin muoxi_server         # binds 127.0.0.1:8000 (telnet, login + game)
+# optional, in another terminal for websocket clients:
+cargo run --bin muoxi_web            # binds 127.0.0.1:8080 (bridges to :8000)
 ```
 
 The first run creates `data/world.db`. Override the path with `DATABASE_URL`.
@@ -89,7 +88,7 @@ For larger deployments, opt into the Postgres backend at compile time:
 ```bash
 sudo apt install libpq-dev                    # or your platform's libpq package
 cargo build --no-default-features --features db-postgres
-DATABASE_URL=postgres://muoxi:muoxi@localhost/muoxi cargo run --bin muoxi_staging
+DATABASE_URL=postgres://muoxi:muoxi@localhost/muoxi cargo run --bin muoxi_server
 ```
 
 You'll need to provision the Postgres database yourself (`createdb muoxi`,
@@ -103,7 +102,7 @@ without Redis, but you'll see cache errors in the log:
 
 ```bash
 redis-server                                  # default port 6379
-REDIS_SERVER=redis://127.0.0.1 cargo run --bin muoxi_staging
+REDIS_SERVER=redis://127.0.0.1 cargo run --bin muoxi_server
 ```
 
 ### Docker
@@ -114,18 +113,17 @@ docker compose up server
 
 ## Quick Start Guide
 
-The project contains the following bins:
+The project ships two binaries:
 
-* **cargo run --bin muoxi_staging**
-    * starts the main Proxy Staging server where all clients will *live*. Direct telnet clients connect via port *8000*.
-
-* **cargo run --bin muoxi_engine**
-    * Starts the game engine on `127.0.0.1:4567` (override `GAME_ADDR`). Currently an echo server while the engine design settles.
+* **cargo run --bin muoxi_server**
+    * Starts the unified MuOxi server on `127.0.0.1:8000` (override `PROXY_ADDR`). One process holds the TCP listener, the login state machine, and the in-process game engine. Direct telnet clients connect on port *8000*.
 
 * **cargo run --bin muoxi_web**
     * Starts the WebSocket bridge listening on `ws://127.0.0.1:8080` (override `WEB_ADDR`).
-      Per-WS-client, it opens a fresh outbound TCP connection to the staging proxy at
+      Per-WS-client, it opens a fresh outbound TCP connection to the server at
       `127.0.0.1:8000` (override `PROXY_ADDR`). Implemented with `tokio-tungstenite`.
+
+The portal/server split (separate proxy + engine processes with a framed protocol enabling hot-reload) is on the v0.2 roadmap; v0.1 is one process.
 
 ## Database Design Architecture
 
@@ -140,13 +138,9 @@ The database design has two layers:
  └──────┬───────┘
         ▼
  ┌──────────────┐
- │ muoxi_staging│  proxy + login state machine
+ │ muoxi_server │  proxy + login state machine + game logic (one process)
  └──────┬───────┘
         ├──────────────► Redis  (per-session cache)
-        ▼
- ┌──────────────┐
- │ muoxi_engine │  game logic
- └──────┬───────┘
         ▼
  ┌──────────────┐
  │   Diesel ORM │  → SQLite (default) | Postgres (opt-in)
