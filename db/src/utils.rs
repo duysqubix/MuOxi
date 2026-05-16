@@ -26,8 +26,8 @@ pub fn read_json_file(path: &str) -> serde_json::Result<serde_json::Value> {
 
 /// Serializes and writes structure to JSON
 pub fn write_json_file<T: Serialize>(path: &str, object: &T) -> serde_json::Result<()> {
-    let errmsg = format!("Couldn't create file: {}", path);
-    let file = File::create(path).expect(errmsg.as_str());
+    let file =
+        File::create(path).unwrap_or_else(|e| panic!("Couldn't create file {}: {}", path, e));
     let writer = BufWriter::new(&file);
     serde_json::to_writer_pretty(writer, object)?;
     Ok(())

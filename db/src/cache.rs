@@ -25,6 +25,11 @@ impl Cache {
         client.get_connection()
     }
 
+    // `Cache` is a zero-sized factory namespace, not a state-carrying handle,
+    // so its constructors return the produced `Connection` directly rather
+    // than a `Cache` instance. Renaming to `connect()` would be a downstream-
+    // visible API break; the contract is already documented above.
+    #[allow(clippy::new_ret_no_self)]
     /// Open a connection using `REDIS_SERVER` env var (default `redis://127.0.0.1`).
     pub fn new() -> RedisResult<Connection> {
         let uri = env::var("REDIS_SERVER").unwrap_or_else(|_| "redis://127.0.0.1".to_string());

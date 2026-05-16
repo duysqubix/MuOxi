@@ -68,19 +68,19 @@ pub struct SessionConfig {
 }
 
 /// Friendly async wrapper for sending messages to a client.
-pub async fn send<'a>(client: &'a mut Client, msg: &'a str) -> LinesCodecResult<()> {
+pub async fn send(client: &mut Client, msg: &str) -> LinesCodecResult<()> {
     client.lines.send(msg.to_string()).await?;
     Ok(())
 }
 
 /// Friendly async wrapper around recieving message from client.
 /// Instead of panicing on wrong error, it returns an `Option<String>`.
-pub async fn get<'a>(client: &'a mut Client) -> Option<String> {
+pub async fn get(client: &mut Client) -> Option<String> {
     client.lines.next().await.and_then(|v| v.ok())
 }
 
 /// Send the welcome banner from `resources/welcome.txt` (relative to CWD).
-pub async fn display_welcome<'a>(client: &'a mut Client) -> LinesCodecResult<()> {
+pub async fn display_welcome(client: &mut Client) -> LinesCodecResult<()> {
     let mut file = File::open("resources/welcome.txt").await?;
     let mut contents = String::new();
     file.read_to_string(&mut contents).await?;
