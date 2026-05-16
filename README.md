@@ -82,6 +82,6 @@ for design conversations.
 GPL-3.0 — see [LICENSE](LICENSE).
 
 [logo]:        .media/cog.png
-[wikimudpage]: https://en.wikipedia.org/wiki/MUD
+[wikimudpage]: https://en.wikipedia.org/wiki/Multi-user_dungeon
 [evennia]:     https://www.evennia.com/
 [discord]:     https://discord.gg/H6Sh3CJ
