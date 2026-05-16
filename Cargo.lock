@@ -211,7 +211,7 @@ checksum = "a4ae5f15dda3c708c0ade84bfee31ccab44a3da4f88015ed22f63732abe300c8"
 
 [[package]]
 name = "db"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -827,7 +827,7 @@ dependencies = [
 
 [[package]]
 name = "muoxi"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "argon2",
  "async-trait",
@@ -848,7 +848,7 @@ dependencies = [
 
 [[package]]
 name = "muoxi-example-extension"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "db",
