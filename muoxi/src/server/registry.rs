@@ -2,6 +2,7 @@
 
 use crate::hooks::{Hook, Hooks};
 use crate::prelude::Command;
+use crate::scheduler::ScriptHandler;
 use crate::typeclass::TypeClass;
 use crate::world::WorldApi;
 use dashmap::DashMap;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 pub struct Registry {
     types: DashMap<&'static str, Arc<dyn TypeClass>>,
     commands: DashMap<String, Arc<dyn Command>>,
+    script_handlers: DashMap<String, Arc<dyn ScriptHandler>>,
     /// hook collection — exposed so callers can fire events directly
     pub hooks: Hooks,
     /// shared world facade
@@ -23,6 +25,7 @@ impl Registry {
         Self {
             types: DashMap::new(),
             commands: DashMap::new(),
+            script_handlers: DashMap::new(),
             hooks: Hooks::new(),
             world,
         }
@@ -57,6 +60,16 @@ impl Registry {
     pub fn resolve_command(&self, input: &str) -> Option<Arc<dyn Command>> {
         let token = input.split_whitespace().next()?.to_lowercase();
         self.commands.get(&token).map(|r| r.clone())
+    }
+
+    /// Register a script handler. Replaces any previous handler with the same key.
+    pub fn register_script_handler(&self, h: Arc<dyn ScriptHandler>) {
+        self.script_handlers.insert(h.key().to_string(), h);
+    }
+
+    /// Resolve a script handler by key.
+    pub fn script_handler(&self, key: &str) -> Option<Arc<dyn ScriptHandler>> {
+        self.script_handlers.get(key).map(|r| r.clone())
     }
 
     /// Bulk-register the framework's built-in type classes.
