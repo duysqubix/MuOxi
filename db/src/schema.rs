@@ -42,10 +42,24 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    scripts (id) {
+        id -> BigInt,
+        object_uid -> Nullable<BigInt>,
+        handler_key -> Text,
+        interval_ms -> BigInt,
+        next_run_at -> BigInt,
+        repeat -> Integer,
+        state -> Text,
+        enabled -> Integer,
+    }
+}
+
 diesel::joinable!(object_attributes -> objects (object_uid));
 diesel::joinable!(object_tags -> objects (object_uid));
 diesel::joinable!(character_accounts -> objects (object_uid));
 diesel::joinable!(character_accounts -> accounts (account_uid));
+diesel::joinable!(scripts -> objects (object_uid));
 
 diesel::allow_tables_to_appear_in_same_query!(
     accounts,
@@ -53,4 +67,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     object_attributes,
     object_tags,
     character_accounts,
+    scripts,
 );
