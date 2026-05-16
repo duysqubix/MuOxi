@@ -3,6 +3,12 @@
 # MuOxi — a MUD framework in Rust
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg?logo=rust)](https://www.rust-lang.org)
+[![Built with Tokio](https://img.shields.io/badge/built%20with-tokio-blue.svg)](https://tokio.rs)
+[![GitHub Stars](https://img.shields.io/github/stars/duysqubix/MuOxi?logo=github)](https://github.com/duysqubix/MuOxi/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/duysqubix/MuOxi?logo=github)](https://github.com/duysqubix/MuOxi/commits)
+[![Open Issues](https://img.shields.io/github/issues/duysqubix/MuOxi?logo=github)](https://github.com/duysqubix/MuOxi/issues)
+[![Discord](https://img.shields.io/badge/discord-join%20chat-5865F2.svg?logo=discord&logoColor=white)][discord]
 
 MuOxi is a framework for building [online multiplayer text games][wikimudpage]
 — MUDs, MUSHes, MUCKs, and their relatives. It handles the parts every
@@ -80,6 +86,10 @@ for design conversations.
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE).
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=duysqubix/MuOxi&type=Date)](https://star-history.com/#duysqubix/MuOxi&Date)
 
 [logo]:        .media/cog.png
 [wikimudpage]: https://en.wikipedia.org/wiki/Multi-user_dungeon
