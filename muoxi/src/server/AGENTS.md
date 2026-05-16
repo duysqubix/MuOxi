@@ -152,3 +152,58 @@ appear in command code.
 - The dispatcher already resolved your command, so handlers don't need
   to call `Registry::resolve_command` themselves — they receive a
   `CommandContext` with `args` already separated.
+
+## Scheduler
+
+Persistent scheduled jobs live in the `scripts` table. The framework spawns a
+single background `Scheduler` task at startup that polls the DB every 50ms
+for due jobs and dispatches them to handlers registered via
+`Registry::register_script_handler`.
+
+Source:
+- [`scheduler.rs`](scheduler.rs) — `Scheduler` task + `ScriptHandler` trait + `ScriptContext`
+- [`scripts/`](scripts/) — built-in handlers (`heartbeat`)
+- `db::objects::script` — persistence layer (`Script` + `ScriptRepo`)
+
+Built-in handlers: `heartbeat` (logs a tick count; demonstrates the shape). Downstream MUDs add their own:
+
+```rust
+use muoxi::scheduler::{ScriptContext, ScriptHandler};
+use async_trait::async_trait;
+use db::utils::UID;
+
+pub struct MobAi;
+
+#[async_trait]
+impl ScriptHandler for MobAi {
+    fn key(&self) -> &'static str { "mob_ai" }
+    async fn run(
+        &self,
+        _ctx: &mut ScriptContext<'_>,
+        _object_uid: Option<UID>,
+        state: serde_json::Value,
+    ) -> Result<serde_json::Value, &'static str> {
+        // ... mob behavior tick ...
+        Ok(state)
+    }
+}
+
+registry.register_script_handler(Arc::new(MobAi));
+```
+
+Schedule a job at runtime:
+
+```rust
+let s = registry.world.with_db(|db| {
+    db.scripts.create_repeating(
+        &mut db.handle,
+        Some(mob_uid),         // owning object (None for global)
+        "mob_ai",              // handler_key — must match a registered ScriptHandler
+        2_000,                 // interval_ms
+        &serde_json::json!({}) // initial state
+    )
+}).await?;
+```
+
+Scripts survive restarts. On boot, the scheduler picks up any overdue jobs and runs them once before settling into the steady-state 50ms poll loop. If a handler returns `Err`, the script is disabled (not deleted) so its state remains inspectable.
+

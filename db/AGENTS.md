@@ -20,9 +20,10 @@ db/
     ├── structures.rs      # Account Diesel model + DatabaseHandlerExt trait
     ├── objects/
     │   ├── mod.rs                    # module root + re-exports
-    │   ├── object.rs                 # Object + ObjectRepo (generic entity)
-    │   ├── attribute.rs              # ObjectAttribute + AttributeRepo (JSON bag)
-    │   ├── tag.rs                    # ObjectTag + TagRepo (labels + categories)
+│   ├── object.rs                 # Object + ObjectRepo (generic entity)
+│   ├── attribute.rs              # ObjectAttribute + AttributeRepo (JSON bag)
+│   ├── script.rs                 # Script + ScriptRepo (persistent scheduled jobs)
+│   ├── tag.rs                    # ObjectTag + TagRepo (labels + categories)
     │   └── character_account.rs      # CharacterAccount + repo (acct ↔ char link)
     ├── cache.rs           # Redis Connection factory
     └── cache_structures/
@@ -59,6 +60,7 @@ Exactly one backend must be active — a `compile_error!` in `conn.rs` enforces 
 | `objects::ObjectAttribute` / `AttributeRepo` | Per-object key→JSON bag. `set` upserts via ON CONFLICT, `get`/`all` parse JSON, `delete` removes. |
 | `objects::ObjectTag` / `TagRepo` | Per-object (key, category) labels. Idempotent `add`, cross-object `objects_with` lookup. |
 | `objects::CharacterAccount` / `CharacterAccountRepo` | Character ↔ account link with ordinal. Replaces the old `account_characters` join. |
+| `objects::Script` / `ScriptRepo` | Persistent scheduled job. Fields: `id, object_uid?, handler_key, interval_ms, next_run_at, repeat, state (JSON), enabled`. Methods: `create_oneshot`, `create_repeating`, `get`, `list_due`, `record_run`, `disable`, `delete`. |
 | `Cache` | Redis connection factory. `Cache::new()` reads `REDIS_SERVER`, defaults `redis://127.0.0.1`. |
 | `Cachable` trait | Generic redis serialization via key format `Type:UID:fieldName`. |
 | `CacheSocket` | Concrete `Cachable` impl storing `(ip, port, uid)` per connected socket. Uses redis `mset`. |
@@ -90,6 +92,10 @@ object_tags(object_uid -> objects, key, category,
             PK(object_uid, key, category), CASCADE on object delete)
 character_accounts(object_uid PK -> objects CASCADE,
                    account_uid -> accounts CASCADE, ordinal)
+
+-- 2026-05-07-000200_scripts
+scripts(id PK, object_uid? -> objects(uid) CASCADE,
+        handler_key, interval_ms, next_run_at, repeat, state, enabled)
 ```
 
 `uid > 0` CHECK constraint on every UID column. Portable across SQLite and Postgres.

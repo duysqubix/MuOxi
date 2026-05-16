@@ -45,6 +45,7 @@ For the design rationale see [`docs/architecture.md`](docs/architecture.md).
 | TCP server / connection lifecycle / state machine | [`muoxi/src/server/`](muoxi/src/server/) |
 | Game-logic dispatch (Registry → lock check → command) | [`muoxi/src/server/cmds.rs`](muoxi/src/server/cmds.rs) |
 | WebSocket bridge + browser test client | [`muoxi/src/webserver/webserver.rs`](muoxi/src/webserver/webserver.rs) |
+| Persistent timed events / scripts | [`muoxi/src/server/scheduler.rs`](muoxi/src/server/scheduler.rs), [`muoxi/src/server/scripts/`](muoxi/src/server/scripts/) |
 | Account table + auth helpers | [`db/src/structures.rs`](db/src/structures.rs), [`muoxi/src/server/auth.rs`](muoxi/src/server/auth.rs) |
 | Generic in-world objects (rooms / items / mobs / etc.) | [`db/src/objects/`](db/src/objects/) |
 | Backend selection (sqlite vs postgres feature) | [`db/src/conn.rs`](db/src/conn.rs) |
@@ -68,11 +69,15 @@ For the design rationale see [`docs/architecture.md`](docs/architecture.md).
 | `ObjectAttribute`, `AttributeRepo` | [`db/src/objects/attribute.rs`](db/src/objects/attribute.rs) | Per-object key → JSON-text bag. |
 | `ObjectTag`, `TagRepo` | [`db/src/objects/tag.rs`](db/src/objects/tag.rs) | Per-object `(key, category)` labels. |
 | `CharacterAccount`, `CharacterAccountRepo` | [`db/src/objects/character_account.rs`](db/src/objects/character_account.rs) | Character ⇄ Account link with ordinal. |
+| `Script`, `ScriptRepo` | [`db/src/objects/script.rs`](db/src/objects/script.rs) | Persistent scheduled-job record + CRUD (`create_oneshot`, `create_repeating`, `list_due`, `record_run`, `disable`). |
 | `Server`, `Client`, `Comms` | [`muoxi/src/server/comms.rs`](muoxi/src/server/comms.rs) | Per-connection state. `Server.clients` is the shared roster. |
 | `ConnStates` | [`muoxi/src/server/states.rs`](muoxi/src/server/states.rs) | 8-state login + character-select machine. |
 | `auth::{hash_password, verify_password, AuthBuffer}` | [`muoxi/src/server/auth.rs`](muoxi/src/server/auth.rs) | argon2id + per-session credential scratch + validators. |
 | `Registry` | [`muoxi/src/server/registry.rs`](muoxi/src/server/registry.rs) | Central index of TypeClasses, Commands, Hooks. |
 | `WorldApi` | [`muoxi/src/server/world.rs`](muoxi/src/server/world.rs) | DB facade for command/hook handlers. |
+| `Scheduler` | [`muoxi/src/server/scheduler.rs`](muoxi/src/server/scheduler.rs) | Background Tokio task that polls due `Script` rows every 50ms and dispatches them. Spawned at `muoxi_server` startup. |
+| `ScriptHandler`, `ScriptContext` | [`muoxi/src/server/scheduler.rs`](muoxi/src/server/scheduler.rs) | Trait for periodic / scheduled behavior. Downstream code registers via `Registry::register_script_handler`. |
+| `HeartbeatHandler` | [`muoxi/src/server/scripts/heartbeat.rs`](muoxi/src/server/scripts/heartbeat.rs) | Built-in worked-example handler — increments a tick counter in persistent state. |
 | `TypeClass` + 5 built-ins | [`muoxi/src/server/typeclass.rs`](muoxi/src/server/typeclass.rs) | In-world type defs (character / room / item / exit / mob). |
 | `Hook` + `Hooks` | [`muoxi/src/server/hooks.rs`](muoxi/src/server/hooks.rs) | Lifecycle event listeners. Only `at_login`/`at_disconnect` are fired today. |
 | `Command` + `CommandContext` | [`muoxi/src/server/prelude.rs`](muoxi/src/server/prelude.rs) | Player command trait + per-invocation context. |
