@@ -94,6 +94,10 @@ impl ScriptRepo {
         )
     }
 
+    // Private helper consolidating the params from `create_oneshot` and
+    // `create_repeating`. The arg count exceeds clippy's default limit, but
+    // a struct wrapper for a single internal call site is more noise than signal.
+    #[allow(clippy::too_many_arguments)]
     fn create(
         &self,
         conn: &mut Conn,
