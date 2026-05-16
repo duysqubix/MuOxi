@@ -2,11 +2,18 @@
 
 use crate::prelude::{Command, CommandContext, CommandResult};
 use crate::send;
+use crate::world::WorldApi;
 use async_trait::async_trait;
 use db::utils::UID;
 use std::collections::HashSet;
 
 /// The `say` built-in command.
+///
+/// Fires `Hook::at_say` (via `Hooks::emit_cancelable`) after the speaker's
+/// own echo but before broadcasting to room-mates. A hook returning `Err`
+/// suppresses delivery to listeners while the speaker still sees their
+/// local echo — matches the trait docstring's "Err suppresses delivery"
+/// contract.
 #[derive(Debug)]
 pub struct CmdSay;
 
@@ -44,6 +51,32 @@ impl Command for CmdSay {
         };
 
         let _ = send(ctx.client, &format!("You say, \"{}\"", ctx.args)).await;
+
+        let world_arc = ctx.world.clone();
+        let world_ref: &WorldApi = world_arc.as_ref();
+        let session_uid = ctx.client.uid;
+        let speaker_for_hook = speaker_char.clone();
+        let msg_for_hook = ctx.args.to_string();
+        let suppress = ctx
+            .registry
+            .hooks
+            .emit_cancelable(|h| {
+                let speaker = speaker_for_hook.clone();
+                let msg = msg_for_hook.clone();
+                async move {
+                    let mut hctx = crate::hooks::HookContext {
+                        world: world_ref,
+                        session_uid: Some(session_uid),
+                    };
+                    h.at_say(&mut hctx, &speaker, &msg).await
+                }
+            })
+            .await
+            .is_err();
+
+        if suppress {
+            return Ok(());
+        }
 
         let in_room = match ctx.world.contents_of(room).await {
             Ok(v) => v,
