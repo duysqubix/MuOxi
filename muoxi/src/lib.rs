@@ -29,6 +29,8 @@ pub mod prelude;
 pub mod registry;
 #[path = "server/scheduler.rs"]
 pub mod scheduler;
+#[path = "server/scripts/mod.rs"]
+pub mod scripts;
 #[path = "server/seed.rs"]
 pub mod seed;
 #[path = "server/states.rs"]
