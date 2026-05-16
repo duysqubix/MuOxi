@@ -35,6 +35,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let registry = Arc::new(Registry::new(world.clone()));
     registry.register_builtin_types();
     muoxi::commands::register_all(&registry);
+    muoxi::scripts::register_all(&registry);
+
+    let scheduler = muoxi::scheduler::Scheduler::new(registry.clone());
+    tokio::spawn(scheduler.run());
 
     let starting_room = seed_world(&world)
         .await
