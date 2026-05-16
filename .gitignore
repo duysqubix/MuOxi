@@ -18,3 +18,4 @@ data/*.sqlite-wal
 data/*.sqlite-shm
 
 docs/superpowers/
+.opencode/
