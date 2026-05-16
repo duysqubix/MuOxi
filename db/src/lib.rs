@@ -18,7 +18,7 @@ pub use diesel;
 pub use diesel_migrations;
 
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use objects::{AttributeRepo, CharacterAccountRepo, ObjectRepo, TagRepo};
+use objects::{AttributeRepo, CharacterAccountRepo, ObjectRepo, ScriptRepo, TagRepo};
 use structures::account::AccountHandler;
 
 /// All SQL migrations under `migrations/`, embedded at compile time.
@@ -39,6 +39,8 @@ pub struct DatabaseHandler {
     pub tags: TagRepo,
     /// character⇄account link CRUD
     pub character_accounts: CharacterAccountRepo,
+    /// scheduled-job CRUD
+    pub scripts: ScriptRepo,
 }
 
 impl DatabaseHandler {
@@ -61,6 +63,7 @@ impl DatabaseHandler {
             attributes: AttributeRepo,
             tags: TagRepo,
             character_accounts: CharacterAccountRepo,
+            scripts: ScriptRepo,
         }
     }
 }
