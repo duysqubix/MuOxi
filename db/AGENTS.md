@@ -20,10 +20,10 @@ db/
     ├── structures.rs      # Account Diesel model + DatabaseHandlerExt trait
     ├── objects/
     │   ├── mod.rs                    # module root + re-exports
-│   ├── object.rs                 # Object + ObjectRepo (generic entity)
-│   ├── attribute.rs              # ObjectAttribute + AttributeRepo (JSON bag)
-│   ├── script.rs                 # Script + ScriptRepo (persistent scheduled jobs)
-│   ├── tag.rs                    # ObjectTag + TagRepo (labels + categories)
+    │   ├── object.rs                 # Object + ObjectRepo (generic entity)
+    │   ├── attribute.rs              # ObjectAttribute + AttributeRepo (JSON bag)
+    │   ├── script.rs                 # Script + ScriptRepo (persistent scheduled jobs)
+    │   ├── tag.rs                    # ObjectTag + TagRepo (labels + categories)
     │   └── character_account.rs      # CharacterAccount + repo (acct ↔ char link)
     ├── cache.rs           # Redis Connection factory
     └── cache_structures/
