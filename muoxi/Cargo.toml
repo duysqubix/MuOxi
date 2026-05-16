@@ -10,8 +10,13 @@ license.workspace = true
 name = "muoxi"
 path = "src/lib.rs"
 
+[features]
+default = ["db-sqlite"]
+db-sqlite = ["db/db-sqlite"]
+db-postgres = ["db/db-postgres"]
+
 [dependencies]
-db = { path = "../db" }
+db = { path = "../db", default-features = false }
 
 tokio = { workspace = true }
 tokio-util = { workspace = true }

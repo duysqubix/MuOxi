@@ -6,9 +6,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+default = ["db-sqlite"]
+db-sqlite = ["muoxi/db-sqlite", "db/db-sqlite"]
+db-postgres = ["muoxi/db-postgres", "db/db-postgres"]
+
 [dependencies]
-muoxi = { path = "../../muoxi" }
-db = { path = "../../db" }
+muoxi = { path = "../../muoxi", default-features = false }
+db = { path = "../../db", default-features = false }
 async-trait = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
