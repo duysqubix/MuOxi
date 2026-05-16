@@ -3,12 +3,26 @@
 //! Connection-state machine.
 
 use crate::cmds::dispatch;
-use crate::comms::Client;
+use crate::comms::{Client, Server};
 use crate::prelude::LinesCodecResult;
 use crate::registry::Registry;
 use crate::world::WorldApi;
+use db::utils::UID;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::sync::Mutex;
+
+async fn set_session_character(
+    client: &mut Client,
+    server: &Arc<Mutex<Server>>,
+    character_uid: UID,
+) {
+    client.character_uid = Some(character_uid);
+    let mut srv = server.lock().await;
+    if let Some(comms) = srv.clients.get_mut(&client.uid) {
+        comms.character_uid = Some(character_uid);
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ConnStates {
@@ -31,6 +45,7 @@ impl ConnStates {
         client: &mut Client,
         registry: Arc<Registry>,
         world: Arc<WorldApi>,
+        server: Arc<Mutex<Server>>,
         response: String,
     ) -> LinesCodecResult<Self> {
         match self {
@@ -246,7 +261,7 @@ impl ConnStates {
                         .await
                     {
                         Ok(obj) => {
-                            client.character_uid = Some(obj.uid);
+                            set_session_character(client, &server, obj.uid).await;
                             crate::send(
                                 client,
                                 &format!("Created {}. Entering world.", obj.name),
@@ -263,9 +278,10 @@ impl ConnStates {
 
                 if let Ok(idx) = trimmed.parse::<usize>() {
                     if idx >= 1 && idx <= chars.len() {
-                        let chosen = &chars[idx - 1];
-                        client.character_uid = Some(chosen.uid);
-                        crate::send(client, &format!("Playing as {}.", chosen.name))
+                        let chosen_uid = chars[idx - 1].uid;
+                        let chosen_name = chars[idx - 1].name.clone();
+                        set_session_character(client, &server, chosen_uid).await;
+                        crate::send(client, &format!("Playing as {}.", chosen_name))
                             .await?;
                         return Ok(ConnStates::Playing);
                     }
@@ -282,7 +298,7 @@ impl ConnStates {
                 if response.trim().eq_ignore_ascii_case("quit") {
                     return Ok(ConnStates::Quit);
                 }
-                dispatch(client, registry, world, &response, "Huh?").await;
+                dispatch(client, registry, world, server, &response, "Huh?").await;
                 Ok(ConnStates::Playing)
             }
             _ => Ok(ConnStates::Quit),

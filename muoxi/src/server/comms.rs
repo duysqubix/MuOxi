@@ -55,7 +55,11 @@ impl Client {
     ) -> tokio::io::Result<Self> {
         let addr = stream.peer_addr()?;
         let (tx, rx) = mpsc::unbounded_channel();
-        let comms = Comms(addr, tx);
+        let comms = Comms {
+            addr,
+            tx,
+            character_uid: None,
+        };
         server.lock().await.clients.insert(uid, comms);
         Ok(Self {
             uid,
@@ -89,9 +93,22 @@ impl Stream for Client {
     }
 }
 
-/// Server-owned structure holding each client's `SocketAddr` and outbound `Tx`.
+/// Server-owned structure holding each client's `SocketAddr`, outbound `Tx`,
+/// and the UID of the character they're currently playing (if any). The
+/// `character_uid` is set when the session transitions into `Playing` and
+/// cleared on disconnect — it lets room-scoped broadcast (`say`, future
+/// `emote`, etc.) find listeners without holding the per-task `Client` lock.
 #[derive(Debug)]
-pub struct Comms(pub SocketAddr, pub Tx);
+pub struct Comms {
+    /// remote socket address of the connected client
+    pub addr: SocketAddr,
+    /// outbound channel — messages pushed here are delivered to the client's
+    /// TCP socket by its `process()` task draining `Client.rx`
+    pub tx: Tx,
+    /// UID of the character this session is playing, set when entering
+    /// `Playing` state; `None` while still in auth / menu states
+    pub character_uid: Option<UID>,
+}
 
 /// Shared ownership structure between all connected clients.
 #[derive(Debug, Default)]
@@ -113,11 +130,11 @@ impl Server {
     /// message.
     pub async fn broadcast(&mut self, sender: SocketAddr, message: &str) {
         for (_uid, comms) in self.clients.iter_mut() {
-            if comms.0 != sender {
-                let _ = comms.1.send(message.into());
+            if comms.addr != sender {
+                let _ = comms.tx.send(message.into());
             } else {
                 let msg = format!("You broadcasted, {}", message);
-                let _ = comms.1.send(msg);
+                let _ = comms.tx.send(msg);
             }
         }
     }

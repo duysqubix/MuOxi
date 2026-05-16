@@ -2,11 +2,12 @@
 
 //! Command dispatcher used by the connection-state handler.
 
-use crate::comms::Client;
+use crate::comms::{Client, Server};
 use crate::prelude::CommandContext;
 use crate::registry::Registry;
 use crate::world::WorldApi;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Resolve and execute a single command line.
 ///
@@ -18,6 +19,7 @@ pub async fn dispatch(
     client: &mut Client,
     registry: Arc<Registry>,
     world: Arc<WorldApi>,
+    server: Arc<Mutex<Server>>,
     input: &str,
     unknown_msg: &str,
 ) {
@@ -41,6 +43,7 @@ pub async fn dispatch(
         registry: registry.clone(),
         world: world.clone(),
         args,
+        server,
     };
     if let Err(e) = cmd.execute_cmd(ctx).await {
         let _ = crate::send(client, &format!("Command error: {e}")).await;

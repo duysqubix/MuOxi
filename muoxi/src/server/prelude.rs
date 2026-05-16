@@ -4,13 +4,13 @@
 //! name/alias at runtime. Each invocation receives a `CommandContext` carrying
 //! the session, the registry, the world facade, and the raw argument string.
 
-use crate::comms::Client;
+use crate::comms::{Client, Server};
 use crate::registry::Registry;
 use crate::world::WorldApi;
 use async_trait::async_trait;
 use std::fmt::Debug;
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 use tokio_util::codec::LinesCodecError;
 
 /// outbound channel handle stored in `Comms`
@@ -35,6 +35,9 @@ pub struct CommandContext<'a> {
     pub world: Arc<WorldApi>,
     /// raw arguments after the command name (may be empty)
     pub args: &'a str,
+    /// shared client roster — used by commands that broadcast to other
+    /// sessions (e.g. `say` resolves room-mates via this map)
+    pub server: Arc<Mutex<Server>>,
 }
 
 /// A registered command. Implementations are unit structs (or carry only

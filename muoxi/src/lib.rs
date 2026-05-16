@@ -40,7 +40,7 @@ pub mod typeclass;
 #[path = "server/world.rs"]
 pub mod world;
 
-use crate::comms::{Client, Server};
+use crate::comms::{Client, Message, Server};
 use crate::prelude::LinesCodecResult;
 use crate::registry::Registry;
 use crate::states::ConnStates;
@@ -154,6 +154,12 @@ pub async fn process(
         {
             Ok(dev_char) => {
                 client.character_uid = Some(dev_char.uid);
+                {
+                    let mut srv = server.lock().await;
+                    if let Some(comms) = srv.clients.get_mut(&client.uid) {
+                        comms.character_uid = Some(dev_char.uid);
+                    }
+                }
                 client.state = ConnStates::Playing;
                 let _ = send(
                     &mut client,
@@ -179,19 +185,32 @@ pub async fn process(
         if client.state == ConnStates::Quit {
             println!("Client is disconnecting");
             game_loop = false;
+            continue;
         }
-        if let Some(response) = get(&mut client).await {
-            let new_state = client
-                .state
-                .clone()
-                .execute(&mut client, registry.clone(), world.clone(), response)
-                .await?;
-            client.state = new_state;
-            let state = format!("({:?})", client.state);
-            send(&mut client, &state).await?;
-        } else {
-            println!("Client dropped connection. Removing...");
-            game_loop = false;
+        match client.next().await {
+            Some(Ok(Message::FromClient(response))) => {
+                let new_state = client
+                    .state
+                    .clone()
+                    .execute(
+                        &mut client,
+                        registry.clone(),
+                        world.clone(),
+                        server.clone(),
+                        response,
+                    )
+                    .await?;
+                client.state = new_state;
+                let state = format!("({:?})", client.state);
+                send(&mut client, &state).await?;
+            }
+            Some(Ok(Message::OnRx(broadcast))) => {
+                send(&mut client, &broadcast).await?;
+            }
+            Some(Err(_)) | None => {
+                println!("Client dropped connection. Removing...");
+                game_loop = false;
+            }
         }
     }
 

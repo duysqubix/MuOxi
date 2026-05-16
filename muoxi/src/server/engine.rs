@@ -5,19 +5,21 @@
 //! to add pre-/post-input processing (e.g., cooldown checks, idle timers,
 //! global hook firing) without touching `states::execute`.
 
-use crate::comms::Client;
+use crate::comms::{Client, Server};
 use crate::prelude::LinesCodecResult;
 use crate::registry::Registry;
 use crate::world::WorldApi;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Handle a single line of input from a `Playing` client.
 pub async fn handle_input(
     client: &mut Client,
     registry: Arc<Registry>,
     world: Arc<WorldApi>,
+    server: Arc<Mutex<Server>>,
     input: &str,
 ) -> LinesCodecResult<()> {
-    crate::cmds::dispatch(client, registry, world, input, "Huh?").await;
+    crate::cmds::dispatch(client, registry, world, server, input, "Huh?").await;
     Ok(())
 }
